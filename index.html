@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Автосервис: Дерево Улучшений</title>
+    <title>Автосервис КЛИКЕР</title>
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
     <style>
         body {
@@ -14,37 +14,42 @@
             padding: 20px;
             text-align: center;
             user-select: none;
+            -webkit-user-select: none; /* Чтобы не выделялся текст при частых тапах */
         }
         h1 { color: #0088cc; margin-bottom: 5px; }
         .stats-container {
             background: #2c2c2e;
             padding: 15px;
             border-radius: 12px;
-            margin-bottom: 20px;
+            margin-bottom: 25px;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.3);
         }
         .stat { font-size: 18px; margin: 5px 0; }
-        .money { color: #34c759; font-weight: bold; font-size: 24px; }
+        .money { color: #34c759; font-weight: bold; font-size: 28px; }
         
-        /* Стили для мини-игры (капчи) */
-        .captcha-box {
-            background: #222224;
-            border: 2px dashed #0088cc;
-            border-radius: 12px;
-            padding: 15px;
-            margin-bottom: 20px;
-            display: none; /* Изначально скрыта */
-        }
-        .captcha-text { font-size: 16px; margin-bottom: 10px; color: #ffcc00; white-space: pre-line; }
-        .captcha-input {
-            width: 80%;
-            padding: 10px;
-            font-size: 16px;
-            border-radius: 8px;
-            border: 1px solid #48484a;
-            background: #1c1c1e;
+        /* ГЛАВНАЯ КНОПКА-КЛИКЕР */
+        .click-btn {
+            width: 180px;
+            height: 180px;
+            border-radius: 50%;
+            background: radial-gradient(circle, #34c759 0%, #248a3d 100%);
+            border: 5px solid #ffffff;
             color: white;
-            text-align: center;
-            margin-bottom: 10px;
+            font-size: 50px;
+            font-weight: bold;
+            cursor: pointer;
+            box-shadow: 0 8px 20px rgba(0,0,0,0.5);
+            margin: 0 auto 30px auto;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: transform 0.05s ease;
+            outline: none;
+        }
+        /* Эффект нажатия (сжатие кнопки) */
+        .click-btn:active {
+            transform: scale(0.92);
+            background: radial-gradient(circle, #248a3d 0%, #1b662d 100%);
         }
 
         /* Дерево улучшений */
@@ -66,8 +71,8 @@
             position: relative;
         }
         .upgrade-node.unlocked { border-color: #48484a; }
-        .upgrade-node.active_branch { border-color: #34c759; }
-        .upgrade-node.locked { background: #161617; opacity: 0.4; }
+        .upgrade-node.bought { border-color: #34c759; background: #2c3e2e; }
+        .upgrade-node.locked { background: #161617; opacity: 0.3; }
         .upgrade-title { font-weight: bold; font-size: 16px; margin-bottom: 5px; }
         .upgrade-desc { font-size: 12px; color: #aeaee3; margin-bottom: 10px; }
         
@@ -87,51 +92,43 @@
             right: 15px;
             top: 15px;
             color: #ff3b30;
-            font-size: 12px;
+            font-size: 11px;
             font-weight: bold;
         }
     </style>
 </head>
 <body>
 
-    <h1>Гайковерт RPG</h1>
-    <p style="color: #8e8e93; margin-top: 0;">Дерево улучшений автосервиса</p>
+    <h1>Гаражный Кликер</h1>
+    <p style="color: #8e8e93; margin-top: 0;">Просто тапай на гайку!</p>
 
     <div class="stats-container">
         <div class="stat">Баланс: <span id="balance" class="money">0</span> ₽</div>
-        <div class="stat">Уровень мастерства: <span id="level" style="color:#ffcc00">1</span></div>
-        <div class="stat">Доход: +<span id="income">1</span> ₽/ремонт</div>
+        <div class="stat">Уровень СТО: <span id="level" style="color:#ffcc00">1</span></div>
+        <div class="stat">Сила тапа: +<span id="income">1</span> ₽</div>
     </div>
 
-    <button class="btn" id="workBtn" onclick="openCaptcha()" style="padding: 15px; font-size: 18px; margin-bottom: 20px; background: #34c759;">
-        🔧 Взять машину на ремонт
-    </button>
+    <div class="click-btn" onclick="makeClick()">🔧</div>
 
-    <div class="captcha-box" id="captchaBox">
-        <div class="captcha-text" id="captchaQuestion">Загрузка задачи...</div>
-        <input type="number" class="captcha-input" id="captchaAnswer" placeholder="Введите цифры ответа">
-        <button class="btn" onclick="checkCaptcha()" style="background: #34c759;">Сдать работу</button>
-    </div>
-
-    <h3>Ветки развития:</h3>
+    <h3>Дерево прокачки:</h3>
     <div class="tree-container">
         <div class="upgrade-node unlocked" id="node_tools">
             <div class="upgrade-title">🛠️ Набор китайских ключей</div>
-            <div class="upgrade-desc">Увеличивает доход от ремонта на +2 ₽.</div>
+            <div class="upgrade-desc">Увеличивает силу тапа на +2 ₽.</div>
             <button class="btn" id="btn_tools" onclick="buyUpgrade('tools', 50)">Купить за 50 ₽</button>
         </div>
 
         <div class="upgrade-node locked" id="node_pneumo">
-            <span class="locked-badge" id="lock_pneumo">🔒 Нужен Набор ключей</span>
+            <span class="locked-badge" id="lock_pneumo">🔒 Требуется: Набор ключей</span>
             <div class="upgrade-title">💨 Пневмогайковерт</div>
-            <div class="upgrade-desc">Серьезный инструмент. Дает +10 ₽ к клику.</div>
+            <div class="upgrade-desc">Тапать станет легче! Дает +10 ₽ к силе тапа.</div>
             <button class="btn" id="btn_pneumo" onclick="buyUpgrade('pneumo', 300)" disabled>Купить за 300 ₽</button>
         </div>
 
         <div class="upgrade-node locked" id="node_lift">
-            <span class="locked-badge" id="lock_lift">🔒 Нужен Гайковерт</span>
+            <span class="locked-badge" id="lock_lift">🔒 Требуется: Пневмогайковерт</span>
             <div class="upgrade-title">🏗️ Гидравлический подъемник</div>
-            <div class="upgrade-desc">Позволяет чинить иномарки. Дает +50 ₽ к клику.</div>
+            <div class="upgrade-desc">Мощный буст! Дает +50 ₽ к силе тапа.</div>
             <button class="btn" id="btn_lift" onclick="buyUpgrade('lift', 1500)" disabled>Купить за 1500 ₽</button>
         </div>
     </div>
@@ -140,6 +137,7 @@
         const tg = window.Telegram.WebApp;
         tg.expand();
 
+        // Состояние кликера
         let gameState = {
             balance: 0,
             level: 1,
@@ -151,20 +149,19 @@
             }
         };
 
-        // База задач для капчи
-        const tasks = [
-            { q: "Порядок замены колеса:\n1. Снять болты\n2. Домкрат\n3. Поставить запаску", a: "213" },
-            { q: "Порядок замены масла:\n1. Залить новое\n2. Слить старое\n3. Скрутить фильтр", a: "231" },
-            { q: "Отключение АКБ:\n1. Снять минус (-)\n2. Снять плюс (+)\n3. Убрать фиксатор", a: "123" }
-        ];
-        let currentTask = null;
+        // КЛИК ФУНКЦИЯ
+        function makeClick() {
+            gameState.balance += gameState.clickIncome;
+            updateUI();
+        }
 
+        // ОБНОВЛЕНИЕ ЭКРАНА
         function updateUI() {
             document.getElementById('balance').innerText = gameState.balance;
             document.getElementById('level').innerText = gameState.level;
             document.getElementById('income').innerText = gameState.clickIncome;
 
-            // Проверка дерева зависимостей
+            // Логика дерева (зависимости веток)
             if (gameState.upgrades.tools) {
                 unlockNode('pneumo');
             }
@@ -172,26 +169,27 @@
                 unlockNode('lift');
             }
 
-            // Проверка купленных апгрейдов
+            // Проверка купленных апгрейдов и блокировка кнопок
             for (let key in gameState.upgrades) {
                 if (gameState.upgrades[key]) {
                     const btn = document.getElementById('btn_' + key);
                     if(btn) {
-                        btn.innerText = "Изучено";
+                        btn.innerText = "Изучено 👍";
                         btn.disabled = true;
-                        document.getElementById('node_' + key).className = "upgrade-node active_branch";
+                        document.getElementById('node_' + key).className = "upgrade-node bought";
                     }
                 }
             }
 
-            // Кнопка сохранения в ТГ
-            tg.MainButton.setText("Сохранить прогресс");
+            // Показываем кнопку сохранения в ТГ
+            tg.MainButton.setText("Сохранить баланс");
             tg.MainButton.show();
         }
 
+        // РАЗБЛОКИРОВКА СЛЕДУЮЩЕЙ ВЕТКИ
         function unlockNode(id) {
             const node = document.getElementById('node_' + id);
-            if(node.classList.contains('locked')) {
+            if(node && node.classList.contains('locked')) {
                 node.classList.remove('locked');
                 node.classList.add('unlocked');
                 document.getElementById('lock_' + id).style.display = 'none';
@@ -201,56 +199,30 @@
             }
         }
 
+        // ПОКУПКА АПГРЕЙДА
         function buyUpgrade(type, cost) {
             if (gameState.balance >= cost && !gameState.upgrades[type]) {
                 gameState.balance -= cost;
                 gameState.upgrades[type] = true;
                 
+                // Добавляем силу клика в зависимости от ветки
                 if (type === 'tools') gameState.clickIncome += 2;
                 if (type === 'pneumo') gameState.clickIncome += 10;
                 if (type === 'lift') gameState.clickIncome += 50;
 
-                gameState.level += 1;
+                gameState.level += 1; // Повышаем уровень СТО
                 updateUI();
             } else {
-                alert("Недостаточно денег для улучшения!");
+                alert("Не хватает рублей для покупки!");
             }
         }
 
-        // ОТКРЫТИЕ ОКНА РАБОТЫ (КАПЧИ)
-        function openCaptcha() {
-            // Выбираем случайную задачу
-            currentTask = tasks[Math.floor(Math.random() * tasks.length)];
-            document.getElementById('captchaQuestion').innerText = currentTask.q;
-            document.getElementById('captchaAnswer').value = ""; // Очищаем поле ввода
-            
-            // Показываем блок с капчей и скрываем кнопку "Взять машину"
-            document.getElementById('captchaBox').style.display = 'block';
-            document.getElementById('workBtn').style.display = 'none';
-        }
-
-        // ПРОВЕРКА ОТВЕТА
-        function checkCaptcha() {
-            const userAnswer = document.getElementById('captchaAnswer').value.trim();
-            
-            if (userAnswer === currentTask.a) {
-                gameState.balance += gameState.clickIncome;
-                alert(`🔧 Успешный ремонт! Заработано: +${gameState.clickIncome} ₽`);
-            } else {
-                alert("❌ Ошибка! Ты неправильно собрал узел. Деньги потеряны.");
-            }
-
-            // Прячем капчу обратно, возвращаем кнопку работы
-            document.getElementById('captchaBox').style.display = 'none';
-            document.getElementById('workBtn').style.display = 'block';
-            updateUI();
-        }
-
-        // Отправка данных боту на Python при клике на нижнюю кнопку ТГ
+        // Отправка сохранения в твой Python бот
         tg.onEvent('mainButtonClicked', function(){
             tg.sendData(JSON.stringify(gameState));
         });
 
+        // Первый запуск
         updateUI();
     </script>
 </body>
