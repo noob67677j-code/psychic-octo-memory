@@ -1,26 +1,231 @@
 <!DOCTYPE html>
-<html>
+<html lang="ru">
 <head>
+    <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Автосервис: Дерево Улучшений</title>
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
     <style>
-        body { font-family: sans-serif; text-align: center; }
-        .btn { padding: 20px; background: #0088cc; color: white; border-radius: 10px; margin: 10px; display: block; }
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #1c1c1e;
+            color: #ffffff;
+            margin: 0;
+            padding: 20px;
+            text-align: center;
+            user-select: none;
+        }
+        h1 { color: #0088cc; margin-bottom: 5px; }
+        .stats-container {
+            background: #2c2c2e;
+            padding: 15px;
+            border-radius: 12px;
+            margin-bottom: 20px;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.3);
+        }
+        .stat { font-size: 18px; margin: 5px 0; }
+        .money { color: #34c759; font-weight: bold; font-size: 24px; }
+        
+        /* Дерево улучшений */
+        .tree-container {
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+            align-items: center;
+            margin-top: 20px;
+        }
+        .upgrade-node {
+            width: 90%;
+            max-width: 350px;
+            background: #3a3a3c;
+            border: 2px solid #48484a;
+            border-radius: 12px;
+            padding: 15px;
+            transition: all 0.2s ease;
+            text-align: left;
+            position: relative;
+        }
+        .upgrade-node.unlocked { border-color: #34c759; }
+        .upgrade-node.locked { background: #161617; opacity: 0.5; }
+        .upgrade-title { font-weight: bold; font-size: 16px; margin-bottom: 5px; }
+        .upgrade-desc { font-size: 12px; color: #aeaee3; margin-bottom: 10px; }
+        
+        .btn {
+            background: #0088cc;
+            color: white;
+            border: none;
+            padding: 8px 12px;
+            border-radius: 6px;
+            font-weight: bold;
+            cursor: pointer;
+            width: 100%;
+        }
+        .btn:disabled { background: #48484a; color: #8e8e93; cursor: not-allowed; }
+        .locked-badge {
+            position: absolute;
+            right: 15px;
+            top: 15px;
+            color: #ff3b30;
+            font-size: 12px;
+            font-weight: bold;
+        }
     </style>
 </head>
 <body>
-    <h1>Твой Гараж</h1>
-    <div id="balance">Баланс: 0 ₽</div>
-    <div class="btn" onclick="upgrade()">Улучшить станок (+10₽)</div>
-    
+
+    <h1>Гайковерт RPG</h1>
+    <p style="color: #8e8e93; margin-top: 0;">Дерево улучшений автосервиса</p>
+
+    <div class="stats-container">
+        <div class="stat">Баланс: <span id="balance" class="money">0</span> ₽</div>
+        <div class="stat">Уровень мастерства: <span id="level" style="color:#ffcc00">1</span></div>
+        <div class="stat">Доход: +<span id="income">1</span> ₽/клик</div>
+    </div>
+
+    <button class="btn" id="workBtn" onclick="triggerWorkCheck()" style="padding: 18px; font-size: 18px; margin-bottom: 25px; background: #34c759;">
+        🔧 Начать ремонт автомобиля
+    </button>
+
+    <h3>Ветки развития:</h3>
+    <div class="tree-container">
+        <div class="upgrade-node unlocked" id="node_tools">
+            <div class="upgrade-title">🛠️ Набор китайских ключей</div>
+            <div class="upgrade-desc">Увеличивает доход от ремонта на +2 ₽.</div>
+            <button class="btn" id="btn_tools" onclick="buyUpgrade('tools', 50)">Купить за 50 ₽</button>
+        </div>
+
+        <div class="upgrade-node locked" id="node_pneumo">
+            <span class="locked-badge" id="lock_pneumo">🔒 Нужен Набор ключей</span>
+            <div class="upgrade-title">💨 Пневмогайковерт</div>
+            <div class="upgrade-desc">Серьезный инструмент. Дает +10 ₽ к клику.</div>
+            <button class="btn" id="btn_pneumo" onclick="buyUpgrade('pneumo', 300)" disabled>Купить за 300 ₽</button>
+        </div>
+
+        <div class="upgrade-node locked" id="node_lift">
+            <span class="locked-badge" id="lock_lift">🔒 Нужен Гайковерт</span>
+            <div class="upgrade-title">🏗️ Гидравлический подъемник</div>
+            <div class="upgrade-desc">Позволяет чинить иномарки. Дает +50 ₽ к клику.</div>
+            <button class="btn" id="btn_lift" onclick="buyUpgrade('lift', 1500)" disabled>Купить за 1500 ₽</button>
+        </div>
+    </div>
+
     <script>
-        let balance = 0;
-        function upgrade() {
-            balance += 10;
-            document.getElementById('balance').innerText = "Баланс: " + balance + " ₽";
-            Telegram.WebApp.MainButton.setText("Закрыть и сохранить");
-            Telegram.WebApp.MainButton.show();
+        // Инициализация Telegram WebApp
+        const tg = window.Telegram.WebApp;
+        tg.expand(); // Разворачиваем на весь экран
+
+        // Состояние игры (дефолтное)
+        let gameState = {
+            balance: 0,
+            level: 1,
+            clickIncome: 1,
+            upgrades: {
+                tools: false,
+                pneumo: false,
+                lift: false
+            }
+        };
+
+        // Загрузка данных из Telegram (если переданы)
+        if (tg.initDataUnsafe && tg.initDataUnsafe.start_param) {
+            // В реальном проекте тут запрашивают данные с сервера,
+            // но для простоты мы будем отправлять данные боту при закрытии.
         }
+
+        function updateUI() {
+            document.getElementById('balance').innerText = gameState.balance;
+            document.getElementById('level').innerText = gameState.level;
+            document.getElementById('income').innerText = gameState.clickIncome;
+
+            // Логика дерева зависимостей
+            // 1. Проверяем Пневмогайковерт (нужен набор ключей)
+            if (gameState.upgrades.tools) {
+                unlockNode('pneumo');
+            }
+            // 2. Проверяем Подъемник (нужен пневмогайковерт)
+            if (gameState.upgrades.tools && gameState.upgrades.pneumo) {
+                unlockNode('lift');
+            }
+
+            // Если апгрейд уже куплен, меняем кнопку
+            for (let key in gameState.upgrades) {
+                if (gameState.upgrades[key]) {
+                    const btn = document.getElementById('btn_' + key);
+                    if(btn) {
+                        btn.innerText = "Изучено";
+                        btn.disabled = true;
+                        document.getElementById('node_' + key).style.borderColor = "#34c759";
+                    }
+                }
+            }
+
+            // Кнопка сохранения данных в боте через Главную кнопку ТГ
+            tg.MainButton.setText("Сохранить прогресс в чате");
+            tg.MainButton.show();
+        }
+
+        function unlockNode(id) {
+            document.getElementById('node_' + id).classList.remove('locked');
+            document.getElementById('node_' + id).classList.add('unlocked');
+            const badge = document.getElementById('lock_' + id);
+            if (badge) badge.style.display = 'none';
+            if (!gameState.upgrades[id]) {
+                document.getElementById('btn_' + id).disabled = false;
+            }
+        }
+
+        function buyUpgrade(type, cost) {
+            if (gameState.balance >= cost && !gameState.upgrades[type]) {
+                gameState.balance -= cost;
+                gameState.upgrades[type] = true;
+                
+                if (type === 'tools') gameState.clickIncome += 2;
+                if (type === 'pneumo') gameState.clickIncome += 10;
+                if (type === 'lift') gameState.clickIncome += 50;
+
+                gameState.level += 1;
+                updateUI();
+            } else {
+                tg.showAlert("Недостаточно денег для апгрейда!");
+            }
+        }
+
+        // Гибридная мини-игра (Вариант А + Б)
+        function triggerWorkCheck() {
+            // Выбираем случайную деталь для ремонта
+            const tasks = [
+                { q: "Порядок замены колеса:\n1. Ключ\n2. Домкрат\n3. Колесо", a: "213" },
+                { q: "Порядок замены масла:\n1. Слить масло\n2. Открутить пробку\n3. Залить новое", a: "213" },
+                { q: "Снятие аккумулятора:\n1. Минус (-)\n2. Плюс (+)\n3. Снять фиксатор", a: "123" }
+            ];
+            
+            const randomTask = tasks[Math.floor(Math.random() * tasks.length)];
+            
+            // Запрашиваем код через стандартное окно Telegram
+            tg.showPopup({
+                title: '🔧 Мини-игра: Ремонт',
+                message: randomTask.q + '\n\nВведите цифры порядка действий (например: 123):',
+                buttons: [{id: 'submit', type: 'default', text: 'Готово'}]
+            }, function(buttonId) {
+                // Из-за ограничений простых поп-апов ТГ, сделаем симуляцию ввода через prompt:
+                let playerAnswer = prompt("Введи комбинацию ремонта (3 цифры):");
+                if (playerAnswer === randomTask.a) {
+                    gameState.balance += gameState.clickIncome;
+                    tg.showAlert(`Успешно починено! Вы заработали +${gameState.clickIncome} ₽`);
+                    updateUI();
+                } else {
+                    tg.showAlert("Ошибка сборки! Машина сломана, денег не дали.");
+                }
+            });
+        }
+
+        // Отправка данных назад в бота при клике на главную кнопку
+        tg.onEvent('mainButtonClicked', function(){
+            tg.sendData(JSON.stringify(gameState));
+        });
+
+        // Первичный рендеринг
+        updateUI();
     </script>
 </body>
 </html>
