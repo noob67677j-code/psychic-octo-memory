@@ -8,120 +8,67 @@
     <style>
         body {
             font-family: 'Roboto', 'Segoe UI', system-ui, -apple-system, sans-serif;
-            background-color: #111218;
-            color: #e3e2e6;
-            margin: 0;
-            padding: 16px 16px 90px 16px;
-            text-align: center;
-            user-select: none;
-            -webkit-user-select: none;
-            overflow-x: hidden;
+            background-color: #111218; color: #e3e2e6; margin: 0; padding: 16px 16px 90px 16px;
+            text-align: center; user-select: none; -webkit-user-select: none; overflow-x: hidden; transition: background-color 0.3s ease;
         }
-
+        body.overdose-active { background-color: #1a0b2e; animation: dangerPulse 1.5s infinite alternate; }
+        @keyframes dangerPulse { 0% { box-shadow: inset 0 0 40px rgba(139, 92, 246, 0.2); } 100% { box-shadow: inset 0 0 60px rgba(239, 68, 68, 0.4); } }
         h1 { color: #e3e2e6; margin: 0 0 4px 0; font-size: 24px; font-weight: 400; }
         p { font-size: 14px; color: #919094; margin-top: 0; }
-        
-        .stats-container {
-            background: #1d1b20;
-            padding: 20px;
-            border-radius: 24px;
-            margin-bottom: 20px;
-        }
+        .stats-container { background: #1d1b20; padding: 20px; border-radius: 24px; margin-bottom: 20px; position: relative; z-index: 10; }
         .balance-label { font-size: 13px; color: #cbc4cf; letter-spacing: 0.5px; text-transform: uppercase; }
         .money { color: #34c759; font-weight: 500; font-size: 36px; display: block; margin: 8px 0; min-height: 44px; }
         .sub-stats { display: flex; justify-content: space-around; margin-top: 12px; font-size: 14px; color: #919094; background: #262429; padding: 8px; border-radius: 16px; }
-
         .prestige-info { font-size: 13px; color: #e1e2ec; background: #2b2930; padding: 10px; border-radius: 16px; margin-top: 10px; display: flex; justify-content: center; align-items: center; gap: 8px; }
         .shard-color { color: #7da4ff; font-weight: bold; }
-
+        .overdose-timer-banner { display: none; background: linear-gradient(90deg, #ef4444, #8b5cf6); color: #ffffff; padding: 8px; border-radius: 12px; margin-bottom: 15px; font-weight: bold; font-size: 14px; animation: bounce 0.5s infinite alternate; }
+        @keyframes bounce { 0% { transform: scale(1); } 100% { transform: scale(1.02); } }
         .tab-bar { position: fixed; bottom: 0; left: 0; right: 0; height: 72px; background: #1d1b20; display: flex; justify-content: space-around; align-items: center; z-index: 1000; box-shadow: 0 -2px 10px rgba(0,0,0,0.2); }
         .tab-btn { background: none; border: none; color: #cbc4cf; font-size: 11px; cursor: pointer; display: flex; flex-direction: column; align-items: center; gap: 4px; width: 20%; transition: color 0.2s ease; }
         .tab-btn .icon-wrapper { padding: 4px 16px; border-radius: 16px; transition: background-color 0.2s ease; }
         .tab-btn .icon { font-size: 18px; }
         .tab-btn.active { color: #d0bcff; font-weight: 500; }
         .tab-btn.active .icon-wrapper { background-color: #4f378b; }
-
         .tab-content { display: none; }
         .tab-content.active { display: block; }
-
         .click-area { position: relative; margin: 40px auto; width: 160px; height: 160px; }
-        .click-btn {
-            width: 160px; height: 160px; border-radius: 32px;
-            background: #adc6ff; color: #002e69; font-size: 65px;
-            cursor: pointer; border: none; outline: none;
-            display: flex; align-items: center; justify-content: center;
-            transition: transform 0.08s cubic-bezier(0, 0, 0.2, 1);
-            position: relative; z-index: 2;
-            box-shadow: 0 8px 24px rgba(173, 198, 255, 0.2);
-        }
+        .click-btn { width: 160px; height: 160px; border-radius: 32px; background: #adc6ff; color: #002e69; font-size: 65px; cursor: pointer; border: none; outline: none; display: flex; align-items: center; justify-content: center; transition: transform 0.08s cubic-bezier(0, 0, 0.2, 1); position: relative; z-index: 2; box-shadow: 0 8px 24px rgba(173, 198, 255, 0.2); }
         .click-btn .icon-energy { transition: transform 0.1s ease; display: inline-block; }
-        
-        .click-btn::after {
-            content: ''; position: absolute; top: 0; left: 0; right: 0; bottom: 0;
-            border-radius: 32px; background: transparent;
-            box-shadow: 0 0 0 0 rgba(173, 198, 255, 0.6);
-            transition: opacity 0.2s, box-shadow 0.2s;
-            opacity: 0; z-index: -1;
-        }
+        body.overdose-active .click-btn { background: #ffb4ab; color: #690005; box-shadow: 0 8px 30px rgba(239, 68, 68, 0.5); }
+        .click-btn::after { content: ''; position: absolute; top: 0; left: 0; right: 0; bottom: 0; border-radius: 32px; background: transparent; box-shadow: 0 0 0 0 rgba(173, 198, 255, 0.6); transition: opacity 0.2s, box-shadow 0.2s; opacity: 0; z-index: -1; }
         .click-btn:active { transform: scale(0.93); }
         .click-btn:active .icon-energy { transform: scale(0.85) rotate(-15deg); }
         .click-btn.rippling::after { opacity: 1; box-shadow: 0 0 0 25px rgba(173, 198, 255, 0); transition: 0s; }
-
-        .floating-number {
-            position: fixed; pointer-events: none;
-            color: #adc6ff; font-weight: bold; font-size: 22px;
-            z-index: 9999; animation: floatUp 0.6s cubic-bezier(0.1, 0.8, 0.3, 1) forwards;
-            text-shadow: 0 2px 4px rgba(0,0,0,0.5);
-        }
-        @keyframes floatUp {
-            0% { transform: translateY(0) scale(1); opacity: 1; }
-            100% { transform: translateY(-80px) scale(0.8); opacity: 0; }
-        }
-
+        .anomaly-sphere { position: fixed; width: 75px; height: 75px; border-radius: 50%; background: radial-gradient(circle, #ff5555, #8b5cf6); box-shadow: 0 0 20px #ef4444, inset 0 0 10px #ffffff; color: #ffffff; font-size: 11px; font-weight: bold; display: flex; align-items: center; justify-content: center; cursor: pointer; z-index: 999; text-transform: uppercase; animation: spawnSphere 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275), glitch 0.3s infinite alternate; }
+        @keyframes spawnSphere { 0% { transform: scale(0); } 100% { transform: scale(1); } }
+        @keyframes glitch { 0% { filter: hue-rotate(0deg); } 100% { filter: hue-rotate(45deg); } }
+        .floating-number { position: fixed; pointer-events: none; color: #adc6ff; font-weight: bold; font-size: 22px; z-index: 9999; animation: floatUp 0.6s cubic-bezier(0.1, 0.8, 0.3, 1) forwards; text-shadow: 0 2px 4px rgba(0,0,0,0.5); }
+        body.overdose-active .floating-number { color: #ffb4ab; font-size: 28px; }
+        @keyframes floatUp { 0% { transform: translateY(0) scale(1); opacity: 1; } 100% { transform: translateY(-80px) scale(0.8); opacity: 0; } }
         .multiplier-container { display: flex; justify-content: center; margin: 8px 0 24px 0; background: #262429; border-radius: 20px; padding: 4px; width: fit-content; margin: auto; }
         .mult-btn { background: none; color: #cbc4cf; border: none; padding: 6px 16px; border-radius: 16px; font-weight: 500; cursor: pointer; font-size: 13px; transition: all 0.2s; }
         .mult-btn.active { background: #4f378b; color: #e6e1e5; }
-
         .tree-container { display: flex; flex-direction: column; gap: 12px; align-items: center; }
         .upgrade-node { width: 90%; max-width: 360px; background: #211f26; border-radius: 16px; padding: 16px; text-align: left; position: relative; box-sizing: border-box; }
         .upgrade-node.locked { background: #141218; opacity: 0.3; }
         .upgrade-title { font-weight: 500; font-size: 16px; display: flex; justify-content: space-between; align-items: center;}
         .upgrade-desc { font-size: 13px; color: #919094; margin: 6px 0 14px 0; }
         .lvl-badge { background: #332d41; color: #d0bcff; padding: 4px 10px; border-radius: 8px; font-size: 12px; font-weight: 500; }
-        
-        .btn { 
-            color: #ffffff; border: none; padding: 12px 16px; border-radius: 100px; 
-            font-weight: 500; cursor: pointer; width: 100%; font-size: 14px; 
-            box-shadow: 0 1px 3px rgba(0,0,0,0.2); transition: background-color 0.2s, color 0.2s; 
-        }
+        .btn { color: #ffffff; border: none; padding: 12px 16px; border-radius: 100px; font-weight: 500; cursor: pointer; width: 100%; font-size: 14px; box-shadow: 0 1px 3px rgba(0,0,0,0.2); transition: background-color 0.2s, color 0.2s; }
         .btn.available { background: #34c759; color: #ffffff; }
         .btn.not-available { background: #313033; color: #919094; }
         .btn:disabled { background: #1d1b20; color: #48484a; cursor: not-allowed; box-shadow: none; }
-        
         .btn.prestige-btn { background: #4f378b; color: #ffffff; margin-top: 16px; font-size: 15px; padding: 14px; }
         .btn.prestige-btn:disabled { background: #262429; color: #48484a; }
-
         .locked-badge { position: absolute; right: 16px; top: 16px; color: #ffb4ab; font-size: 12px; font-weight: 500; }
-
         .leaderboard-list { display: flex; flex-direction: column; gap: 8px; width: 95%; max-width: 360px; margin: 15px auto; padding: 0; }
         .leader-item { display: flex; align-items: center; justify-content: space-between; background: #211f26; padding: 12px 16px; border-radius: 16px; box-sizing: border-box; }
         .leader-rank { font-weight: bold; width: 35px; text-align: left; color: #adc6ff; }
         .leader-name { flex-grow: 1; text-align: left; font-weight: 500; text-overflow: ellipsis; overflow: hidden; white-space: nowrap; padding-right: 8px; }
         .leader-score { font-weight: 500; color: #34c759; }
-
-        .modal-backdrop {
-            position: fixed; top: 0; left: 0; right: 0; bottom: 0;
-            background: rgba(0, 0, 0, 0.6); backdrop-filter: blur(4px);
-            z-index: 2000; display: flex; align-items: flex-end;
-            opacity: 0; pointer-events: none; transition: opacity 0.3s ease;
-        }
+        .modal-backdrop { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0, 0, 0, 0.6); backdrop-filter: blur(4px); z-index: 2000; display: flex; align-items: flex-end; opacity: 0; pointer-events: none; transition: opacity 0.3s ease; }
         .modal-backdrop.open { opacity: 1; pointer-events: auto; }
-        .bottom-sheet {
-            width: 100%; background: #1d1b20;
-            border-radius: 28px 28px 0 0; padding: 24px 24px 32px 24px;
-            box-sizing: border-box; text-align: center;
-            transform: translateY(100%); transition: transform 0.3s cubic-bezier(0, 0, 0.2, 1);
-        }
+        .bottom-sheet { width: 100%; background: #1d1b20; border-radius: 28px 28px 0 0; padding: 24px 24px 32px 24px; box-sizing: border-box; text-align: center; transform: translateY(100%); transition: transform 0.3s cubic-bezier(0, 0, 0.2, 1); }
         .modal-backdrop.open .bottom-sheet { transform: translateY(0); }
         .sheet-drag-handle { width: 32px; height: 4px; background: #49454f; border-radius: 2px; margin: 0 auto 16px auto; }
         .modal-title { font-size: 22px; color: #e3e2e6; margin-bottom: 8px; font-weight: 400; }
@@ -131,6 +78,8 @@
 </head>
 <body>
 
+    <div id="overdoseBanner" class="overdose-timer-banner">⚠️ КВАНТОВЫЙ РАЗГОН x10: <span id="overdoseCountdown">15</span> сек! ⚠️</div>
+
     <div class="stats-container">
         <span class="balance-label">Текущий счет</span>
         <span id="balance" class="money">0 ₽</span>
@@ -139,7 +88,7 @@
             <div>Пассив: <span id="passiveIncome" style="color: #d0bcff; font-weight: 500;">+0 ₽/с</span></div>
         </div>
         <div class="prestige-info">
-            <span>⚛️ Квантовые Осколки: <span id="shardDisplay" class="shard-color">0</span></span>
+            <span>⚛️ Осколки: <span id="shardDisplay" class="shard-color">0</span></span>
             <span style="color: #919094; margin-left: 8px;">(Буст: <span id="boostDisplay" style="color:#34c759; font-weight:500;">+0%</span>)</span>
         </div>
     </div>
@@ -200,19 +149,13 @@
         <p>Сбрось текущий прогресс, чтобы высвободить чистую энергию Осколков!</p>
         <div class="tree-container" style="margin-top: 20px;">
             <div class="upgrade-node" style="text-align: center; width: 95%;">
-                <div style="font-size: 15px; margin-bottom: 12px; color: #cbc4cf;">
-                    Доступно при балансе от <b style="color: #34c759;">1 000 000 ₽</b>
-                </div>
-                <div style="font-size: 14px; color: #919094; margin-bottom: 16px;">
-                    Каждый осколок дает постоянный буст <b style="color: #7da4ff;">+10%</b> ко всей добыче. Все модификаторы и баланс будут сброшены.
-                </div>
+                <div style="font-size: 15px; margin-bottom: 12px; color: #cbc4cf;">Доступно при балансе от <b style="color: #34c759;">1 000 000 ₽</b></div>
+                <div style="font-size: 14px; color: #919094; margin-bottom: 16px;">Каждый осколок дает постоянный буст <b style="color: #7da4ff;">+10%</b> ко всей добыче.</div>
                 <div style="background: #1d1b20; padding: 16px; border-radius: 16px; margin-bottom: 16px;">
                     <span style="font-size: 13px; color: #919094; display:block;">Ты получишь при сбросе:</span>
                     <span id="prestigeGainDisplay" style="font-size: 26px; color: #7da4ff; font-weight: bold;">0 ⚛️</span>
                 </div>
-                <button class="btn prestige-btn" id="prestigeCallBtn" onclick="triggerPrestige()" disabled>
-                    Произвести коллапс вселенной
-                </button>
+                <button class="btn prestige-btn" id="prestigeCallBtn" onclick="triggerPrestige()" disabled>Произвести коллапс вселенной</button>
             </div>
         </div>
     </div>
@@ -221,14 +164,14 @@
         <h1>Рейтинг игроков</h1>
         <p>Реальный топ пользователей твоего бота</p>
         <div class="leaderboard-list" id="leaderboardContainer">
-            <div style="color: #919094; margin-top: 20px;">Загрузка глобального рейтинга...</div>
+            <div style="color: #919094; margin-top: 20px;">Топ-лист пуст</div>
         </div>
     </div>
 
     <div class="modal-backdrop" id="offlineModal">
         <div class="bottom-sheet">
             <div class="sheet-drag-handle"></div>
-            <div class="modal-title">С возвращением! Скрипты работали</div>
+            <div class="modal-title">С возвращением!</div>
             <div class="modal-time" id="offlineTimeText">Тебя не было: 0 сек</div>
             <div class="modal-reward" id="offlineRewardText">+0 ₽</div>
             <button class="btn available" onclick="closeOfflineModal()">Забрать энергию</button>
@@ -236,21 +179,11 @@
     </div>
 
     <div class="tab-bar">
-        <button class="tab-btn active" id="btn_tab_main" onclick="switchTab('main')">
-            <div class="icon-wrapper"><span class="icon">⚡</span></div><span>Ядро</span>
-        </button>
-        <button class="tab-btn" id="btn_tab_upgrades" onclick="switchTab('upgrades')">
-            <div class="icon-wrapper"><span class="icon">📈</span></div><span>Клики</span>
-        </button>
-        <button class="tab-btn" id="btn_tab_office" onclick="switchTab('office')">
-            <div class="icon-wrapper"><span class="icon">🤖</span></div><span>Авто</span>
-        </button>
-        <button class="tab-btn" id="btn_tab_prestige" onclick="switchTab('prestige')">
-            <div class="icon-wrapper"><span class="icon">⚛️</span></div><span>Сброс</span>
-        </button>
-        <button class="tab-btn" id="btn_tab_leaderboard" onclick="switchTab('leaderboard')">
-            <div class="icon-wrapper"><span class="icon">🏆</span></div><span>Топ</span>
-        </button>
+        <button class="tab-btn active" id="btn_tab_main" onclick="switchTab('main')"><div class="icon-wrapper"><span class="icon">⚡</span></div><span>Ядро</span></button>
+        <button class="tab-btn" id="btn_tab_upgrades" onclick="switchTab('upgrades')"><div class="icon-wrapper"><span class="icon">📈</span></div><span>Клики</span></button>
+        <button class="tab-btn" id="btn_tab_office" onclick="switchTab('office')"><div class="icon-wrapper"><span class="icon">🤖</span></div><span>Авто</span></button>
+        <button class="tab-btn" id="btn_tab_prestige" onclick="switchTab('prestige')"><div class="icon-wrapper"><span class="icon">⚛️</span></div><span>Сброс</span></button>
+        <button class="tab-btn" id="btn_tab_leaderboard" onclick="switchTab('leaderboard')"><div class="icon-wrapper"><span class="icon">🏆</span></div><span>Топ</span></button>
     </div>
 
     <script>
@@ -258,10 +191,40 @@
         tg.expand();
 
         let buyMultiplier = 1;
-        
-        // 1. ИСПРАВЛЕНИЕ БАГА: Привязываем ключ сохранения строго к ID текущего Telegram-аккаунта
-        const userId = tg.initDataUnsafe?.user?.id ? tg.initDataUnsafe.user.id.toString() : "local_user";
-        const SAVE_KEY = `quantum_clicker_save_${userId}`;
+        let isOverdoseActive = false;
+        let overdoseTimeLeft = 0;
+        let currentActiveTab = 'main';
+        let leaderData = [];
+
+        const AudioCtx = window.AudioContext || window.webkitAudioContext;
+        let audioCtx = null;
+
+        function playSound(type) {
+            try {
+                if (!audioCtx) audioCtx = new AudioCtx();
+                if (audioCtx.state === 'suspended') audioCtx.resume();
+                const osc = audioCtx.createOscillator();
+                const gain = audioCtx.createGain();
+                osc.connect(gain); gain.connect(audioCtx.destination);
+                const now = audioCtx.currentTime;
+                if (type === 'click') {
+                    osc.type = 'sine'; osc.frequency.setValueAtTime(isOverdoseActive ? 800 : 400, now);
+                    osc.frequency.exponentialRampToValueAtTime(80, now + 0.08);
+                    gain.gain.setValueAtTime(0.15, now); gain.gain.linearRampToValueAtTime(0, now + 0.08);
+                    osc.start(now); osc.stop(now + 0.08);
+                } else if (type === 'upgrade') {
+                    osc.type = 'triangle'; osc.frequency.setValueAtTime(300, now);
+                    osc.frequency.setValueAtTime(500, now + 0.08);
+                    gain.gain.setValueAtTime(0.2, now); gain.gain.linearRampToValueAtTime(0, now + 0.2);
+                    osc.start(now); osc.stop(now + 0.2);
+                } else if (type === 'overdose_start') {
+                    osc.type = 'sawtooth'; osc.frequency.setValueAtTime(100, now);
+                    osc.frequency.exponentialRampToValueAtTime(900, now + 0.5);
+                    gain.gain.setValueAtTime(0.25, now); gain.gain.linearRampToValueAtTime(0, now + 0.5);
+                    osc.start(now); osc.stop(now + 0.5);
+                }
+            } catch (e) {}
+        }
 
         let gameState = {
             balance: 0, clickIncome: 1, passiveIncome: 0, lastSaveTime: Date.now(), shards: 0,
@@ -275,34 +238,49 @@
             passive_2: { baseCost: 800, factor: 1.20, power: 15 }
         };
 
-        let leaderData = [
-            { name: "Симуляция_1", balance: 150000 },
-            { name: "Симуляция_2", balance: 75000 },
-            { name: "Симуляция_3", balance: 20000 }
-        ];
-
-        function parseGlobalLeaderboard() {
+        // ЧИТАЕМ ДАННЫЕ ИЗ ССЫЛКИ ОТ БОТА ПРИ ЗАПУСКЕ
+        function initGameData() {
             try {
                 const urlParams = new URLSearchParams(window.location.search);
-                const topParam = urlParams.get('top');
-                if (topParam) {
-                    leaderData = JSON.parse(decodeURIComponent(topParam));
+                const dataParam = urlParams.get('data');
+                
+                if (dataParam) {
+                    const decoded = JSON.parse(decodeURIComponent(dataParam));
+                    if (decoded.save) gameState = decoded.save;
+                    if (decoded.top) leaderData = decoded.top;
+                    
+                    // Расчет оффлайн-дохода
+                    const now = Date.now();
+                    const secondsOffline = Math.floor((now - (gameState.lastSaveTime || now)) / 1000);
+                    if (secondsOffline > 15 && gameState.upgrades) {
+                        let multiplier = 1 + ((gameState.shards || 0) * 0.10);
+                        let basePassive = ((gameState.upgrades.passive_1 || 0) * upgradeConfig.passive_1.power) + ((gameState.upgrades.passive_2 || 0) * upgradeConfig.passive_2.power);
+                        let actualPassive = basePassive * multiplier;
+                        let offlineEarnings = secondsOffline * actualPassive;
+                        if (offlineEarnings > 0) {
+                            gameState.balance += offlineEarnings;
+                            setTimeout(() => { showOfflineModal(secondsOffline, offlineEarnings); }, 600);
+                        }
+                    }
+                } else {
+                    // Резервный локальный режим, если открыли не через бота
+                    const userId = tg.initDataUnsafe?.user?.id ? tg.initDataUnsafe.user.id.toString() : "local_user";
+                    const localSave = localStorage.getItem(`quantum_save_${userId}`);
+                    if(localSave) gameState = JSON.parse(localSave);
                 }
-            } catch (e) { console.log("Ошибка чтения глобального топа:", e); }
+            } catch (e) { console.log("Ошибка инициализации:", e); }
+            updateUI();
         }
-        parseGlobalLeaderboard();
 
         function switchTab(tabId) {
+            currentActiveTab = tabId;
             document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active'));
             document.querySelectorAll('.tab-btn').forEach(el => el.classList.remove('active'));
-            
             document.getElementById('tab_' + tabId).classList.add('active');
             document.getElementById('btn_tab_' + tabId).classList.add('active');
-
             const multContainer = document.getElementById('multContainer');
             multContainer.style.display = (tabId === 'upgrades' || tabId === 'office') ? 'flex' : 'none';
-            
-            if (tabId === 'leaderboard') { renderLeaderboard(); }
+            if (tabId === 'leaderboard') renderLeaderboard();
             if (tg.HapticFeedback) tg.HapticFeedback.impactOccurred('light');
             updateUI();
         }
@@ -310,15 +288,16 @@
         function renderLeaderboard() {
             const container = document.getElementById('leaderboardContainer');
             container.innerHTML = "";
+            if(leaderData.length === 0) {
+                container.innerHTML = `<div style="color: #919094; margin-top: 20px;">Топ обновляется при перезапуске через /start</div>`;
+                return;
+            }
             leaderData.sort((a, b) => b.balance - a.balance);
-
             leaderData.forEach((player, index) => {
-                const rank = index + 1;
-                let rankClass = (rank === 1) ? "rank-1" : (rank === 2) ? "rank-2" : (rank === 3) ? "rank-3" : "";
                 const item = document.createElement('div');
                 item.className = 'leader-item';
                 item.innerHTML = `
-                    <div class="leader-rank ${rankClass}">#${rank}</div>
+                    <div class="leader-rank">#${index + 1}</div>
                     <div class="leader-name">${player.name}</div>
                     <div class="leader-score">${Math.floor(player.balance).toLocaleString('ru-RU')} ₽</div>
                 `;
@@ -326,95 +305,77 @@
             });
         }
 
-        function formatOfflineTime(seconds) {
-            if (seconds < 60) return `${seconds} сек`;
-            let minutes = Math.floor(seconds / 60);
-            let remSeconds = seconds % 60;
-            if (minutes < 60) return `${minutes} мин ${remSeconds} сек`;
-            let hours = Math.floor(minutes / 60);
-            let remMinutes = minutes % 60;
-            return `${hours} ч ${remMinutes} мин`;
-        }
-
         function showOfflineModal(seconds, reward) {
-            document.getElementById('offlineTimeText').innerText = `Тебя не было: ${formatOfflineTime(seconds)}`;
+            document.getElementById('offlineTimeText').innerText = `Тебя не было: ${Math.floor(seconds/60)} мин`;
             document.getElementById('offlineRewardText').innerText = `+${Math.floor(reward).toLocaleString('ru-RU')} ₽`;
             document.getElementById('offlineModal').classList.add('open');
-            if (tg.HapticFeedback) tg.HapticFeedback.notificationOccurred('success');
         }
 
-        function closeOfflineModal() {
-            document.getElementById('offlineModal').classList.remove('open');
-            if (tg.HapticFeedback) tg.HapticFeedback.impactOccurred('light');
-        }
-
-        // Загрузка сейва строго по уникальному для аккаунта ключу SAVE_KEY
-        if (localStorage.getItem(SAVE_KEY)) {
-            try {
-                gameState = JSON.parse(localStorage.getItem(SAVE_KEY));
-                if (gameState.shards === undefined) gameState.shards = 0;
-                
-                const now = Date.now();
-                const secondsOffline = Math.floor((now - gameState.lastSaveTime) / 1000);
-                
-                if (secondsOffline > 5 && gameState.passiveIncome > 0) {
-                    const offlineEarnings = secondsOffline * gameState.passiveIncome;
-                    gameState.balance += offlineEarnings;
-                    setTimeout(() => { showOfflineModal(secondsOffline, offlineEarnings); }, 600);
-                }
-            } catch (e) {}
-        }
+        function closeOfflineModal() { document.getElementById('offlineModal').classList.remove('open'); }
 
         const updateFPS = 20;
         setInterval(function() {
-            if (gameState.passiveIncome > 0) {
-                gameState.balance += (gameState.passiveIncome / updateFPS);
-                
-                let myUsername = tg.initDataUnsafe?.user?.username || tg.initDataUnsafe?.user?.first_name || "Ты";
-                let myEntry = leaderData.find(el => el.name === myUsername);
-                if (!myEntry) leaderData.push({ name: myUsername, balance: gameState.balance });
-                else myEntry.balance = gameState.balance;
-            }
+            if (gameState.passiveIncome > 0) { gameState.balance += (gameState.passiveIncome / updateFPS); }
             document.getElementById('balance').innerText = Math.floor(gameState.balance).toLocaleString('ru-RU') + " ₽";
-            
-            calculatePrestigeGain();
-            updateSmartButtons();
+            calculatePrestigeGain(); updateSmartButtons();
         }, 1000 / updateFPS);
 
-        setInterval(() => { saveToLocal(); }, 5000);
+        setInterval(function() {
+            if (isOverdoseActive) {
+                overdoseTimeLeft--;
+                document.getElementById('overdoseCountdown').innerText = overdoseTimeLeft;
+                if (overdoseTimeLeft <= 0) {
+                    isOverdoseActive = false;
+                    document.body.classList.remove('overdose-active');
+                    document.getElementById('overdoseBanner').style.display = 'none';
+                    updateUI();
+                }
+            }
+        }, 1000);
+
+        function setupAnomalySpawner() {
+            setTimeout(() => { spawnOverdoseAnomaly(); setupAnomalySpawner(); }, (45 + Math.random() * 45) * 1000);
+        }
+        setupAnomalySpawner();
+
+        function spawnOverdoseAnomaly() {
+            if (currentActiveTab !== 'main' || isOverdoseActive) return;
+            const sphere = document.createElement('div');
+            sphere.className = 'anomaly-sphere'; sphere.innerText = 'OVERDOSE!';
+            const x = 30 + Math.random() * (window.innerWidth - 140);
+            const y = 140 + Math.random() * (window.innerHeight - 340);
+            sphere.style.left = `${x}px`; sphere.style.top = `${y}px`;
+            const activate = (e) => { e.preventDefault(); sphere.remove(); activateEarnOverdose(); };
+            sphere.addEventListener('touchstart', activate);
+            document.body.appendChild(sphere);
+            setTimeout(() => { sphere.remove(); }, 6000);
+        }
+
+        function activateEarnOverdose() {
+            isOverdoseActive = true; overdoseTimeLeft = 15;
+            playSound('overdose_start');
+            document.body.classList.add('overdose-active');
+            document.getElementById('overdoseBanner').style.display = 'block';
+            updateUI();
+        }
 
         function makeClick(event) {
             if (event.type === 'touchstart') event.preventDefault();
-            else if (event.type === 'mousedown' && 'ontouchstart' in window) return;
-
             gameState.balance += gameState.clickIncome;
+            playSound('click');
             if (tg.HapticFeedback) tg.HapticFeedback.impactOccurred('light');
-
             const btn = document.getElementById('coreBtn');
-            btn.classList.remove('rippling');
-            void btn.offsetWidth;
-            btn.classList.add('rippling');
-
+            btn.classList.remove('rippling'); void btn.offsetWidth; btn.classList.add('rippling');
             createFloatingNumber(event);
             updateUI();
         }
 
         function createFloatingNumber(event) {
-            let clientX, clientY;
-            if (event.touches && event.touches[0]) {
-                clientX = event.touches[0].clientX;
-                clientY = event.touches[0].clientY;
-            } else {
-                clientX = event.clientX;
-                clientY = event.clientY;
-            }
-
+            let clientX = event.touches ? event.touches[0].clientX : event.clientX;
+            let clientY = event.touches ? event.touches[0].clientY : event.clientY;
             const num = document.createElement('div');
-            num.className = 'floating-number';
-            num.innerText = `+${Math.floor(gameState.clickIncome)}`;
-            num.style.left = `${clientX - 15}px`;
-            num.style.top = `${clientY - 20}px`;
-
+            num.className = 'floating-number'; num.innerText = `+${Math.floor(gameState.clickIncome)}`;
+            num.style.left = `${clientX - 15}px`; num.style.top = `${clientY - 20}px`;
             document.body.appendChild(num);
             setTimeout(() => { num.remove(); }, 600);
         }
@@ -427,8 +388,7 @@
         }
 
         function getCostForLevels(type, currentLvl, count) {
-            let totalCost = 0;
-            let tempLvl = currentLvl;
+            let totalCost = 0; let tempLvl = currentLvl;
             const config = upgradeConfig[type];
             for (let i = 0; i < count; i++) {
                 totalCost += Math.floor(config.baseCost * Math.pow(config.factor, tempLvl));
@@ -438,45 +398,39 @@
         }
 
         function updateUI() {
-            const multiplier = 1 + (gameState.shards * 0.10);
+            let prestigeMultiplier = 1 + (gameState.shards * 0.10);
+            let currentOverdoseBonus = isOverdoseActive ? 10 : 1;
+            let totalMultiplier = prestigeMultiplier * currentOverdoseBonus;
 
             const baseClick = 1 + (gameState.upgrades.click_1 * upgradeConfig.click_1.power) + (gameState.upgrades.click_2 * upgradeConfig.click_2.power);
-            gameState.clickIncome = baseClick * multiplier;
+            gameState.clickIncome = baseClick * totalMultiplier;
 
             const basePassive = (gameState.upgrades.passive_1 * upgradeConfig.passive_1.power) + (gameState.upgrades.passive_2 * upgradeConfig.passive_2.power);
-            gameState.passiveIncome = basePassive * multiplier;
+            gameState.passiveIncome = basePassive * totalMultiplier;
 
             document.getElementById('income').innerText = "+" + Math.floor(gameState.clickIncome) + " ₽";
             document.getElementById('passiveIncome').innerText = "+" + Math.floor(gameState.passiveIncome) + " ₽/с";
-            
             document.getElementById('shardDisplay').innerText = gameState.shards;
-            document.getElementById('boostDisplay').innerText = "+" + (gameState.shards * 10) + "%";
+            document.getElementById('boostDisplay').innerText = "+" + (gameState.shards * 10) + "%" + (isOverdoseActive ? " | x10 🔥" : "");
 
             for (let key in gameState.upgrades) {
                 const lvlEl = document.getElementById('lvl_' + key);
                 if (lvlEl) lvlEl.innerText = "Lvl " + gameState.upgrades[key];
             }
 
-            if (gameState.upgrades.click_1 >= 5) unlockNode('click_2');
-            else lockNode('click_2');
-
-            if (gameState.upgrades.passive_1 >= 5) unlockNode('passive_2');
-            else lockNode('passive_2');
-
+            if (gameState.upgrades.click_1 >= 5) unlockNode('click_2'); else lockNode('click_2');
+            if (gameState.upgrades.passive_1 >= 5) unlockNode('passive_2'); else lockNode('passive_2');
             updateSmartButtons();
 
-            tg.MainButton.setText("Синхронизировать прогресс");
+            tg.MainButton.setText("Выйти и сохранить");
             tg.MainButton.show();
         }
 
         function calculatePrestigeGain() {
             const prestigeBtn = document.getElementById('prestigeCallBtn');
             const gainDisplay = document.getElementById('prestigeGainDisplay');
-            
             if (gameState.balance >= 1000000) {
                 let shardsToGain = Math.floor(Math.sqrt(gameState.balance / 1000000));
-                if (shardsToGain < 1) shardsToGain = 1;
-                
                 gainDisplay.innerText = shardsToGain.toLocaleString('ru-RU') + " ⚛️";
                 if(prestigeBtn) prestigeBtn.disabled = false;
             } else {
@@ -487,25 +441,13 @@
 
         function triggerPrestige() {
             if (gameState.balance < 1000000) return;
-
             let shardsToGain = Math.floor(Math.sqrt(gameState.balance / 1000000));
-            if (shardsToGain < 1) shardsToGain = 1;
-
-            tg.showConfirm(`Вы уверены, что хотите свернуть квантовое ядро?\n\nВы потеряете все рубли и уровни улучшений, но получите постоянный бонус в размере +${shardsToGain * 10}% к добыче!`, function(confirmed) {
+            tg.showConfirm(`Вы уверены? Вы получите ${shardsToGain} осколков, но сбросите рубли.`, function(confirmed) {
                 if (confirmed) {
                     gameState.shards += shardsToGain;
-                    
                     gameState.balance = 0;
-                    gameState.upgrades.click_1 = 0;
-                    gameState.upgrades.click_2 = 0;
-                    gameState.upgrades.passive_1 = 0;
-                    gameState.upgrades.passive_2 = 0;
-
-                    if (tg.HapticFeedback) tg.HapticFeedback.notificationOccurred('warning');
-                    
-                    saveToLocal();
+                    gameState.upgrades = { click_1: 0, click_2: 0, passive_1: 0, passive_2: 0 };
                     switchTab('main');
-                    tg.showAlert(`💥 Коллапс завершен! Новая вселенная создана. Вы получили: ${shardsToGain} осколков.`);
                 }
             });
         }
@@ -515,16 +457,11 @@
                 const cost = getCostForLevels(key, gameState.upgrades[key], buyMultiplier);
                 const btn = document.getElementById('btn_' + key);
                 const node = document.getElementById('node_' + key);
-                
                 if (!btn || node.classList.contains('locked')) continue;
-
                 if (gameState.balance >= cost) {
-                    btn.className = "btn available";
-                    btn.innerText = `Купить x${buyMultiplier} • ${cost.toLocaleString('ru-RU')} ₽`;
+                    btn.className = "btn available"; btn.innerText = `Купить x${buyMultiplier} • ${cost.toLocaleString('ru-RU')} ₽`;
                 } else {
-                    btn.className = "btn not-available";
-                    let diff = Math.ceil(cost - gameState.balance);
-                    btn.innerText = `Еще ${diff.toLocaleString('ru-RU')} ₽`;
+                    btn.className = "btn not-available"; btn.innerText = `Еще ${Math.ceil(cost - gameState.balance).toLocaleString('ru-RU')} ₽`;
                 }
             }
         }
@@ -532,48 +469,38 @@
         function unlockNode(id) {
             const node = document.getElementById('node_' + id);
             if (node && node.classList.contains('locked')) {
-                node.classList.remove('locked');
-                document.getElementById('lock_' + id).style.display = 'none';
-                document.getElementById('btn_' + id).disabled = false;
+                node.classList.remove('locked'); document.getElementById('lock_' + id).style.display = 'none'; document.getElementById('btn_' + id).disabled = false;
             }
         }
 
         function lockNode(id) {
             const node = document.getElementById('node_' + id);
             if (node && !node.classList.contains('locked')) {
-                node.classList.add('locked');
-                document.getElementById('lock_' + id).style.display = 'block';
-                document.getElementById('btn_' + id).disabled = true;
+                node.classList.add('locked'); document.getElementById('lock_' + id).style.display = 'block'; document.getElementById('btn_' + id).disabled = true;
             }
         }
 
         function buyUpgrade(type) {
             const currentLvl = gameState.upgrades[type];
             const cost = getCostForLevels(type, currentLvl, buyMultiplier);
-
             if (gameState.balance >= cost) {
-                gameState.balance -= cost;
-                gameState.upgrades[type] += buyMultiplier;
-
-                if (tg.HapticFeedback) tg.HapticFeedback.notificationOccurred('success');
-                saveToLocal();
-                updateUI();
+                gameState.balance -= cost; gameState.upgrades[type] += buyMultiplier;
+                playSound('upgrade'); updateUI();
+                // Локальный бэкап
+                const userId = tg.initDataUnsafe?.user?.id ? tg.initDataUnsafe.user.id.toString() : "local_user";
+                localStorage.setItem(`quantum_save_${userId}`, JSON.stringify(gameState));
             }
         }
 
-        function saveToLocal() {
-            gameState.lastSaveTime = Date.now();
-            // Сохраняем тоже по уникальному ключу аккаунта
-            localStorage.setItem(SAVE_KEY, JSON.stringify(gameState));
-        }
-
+        // КНОПКА СОХРАНЕНИЯ В ОБЛАКО БОТА
         tg.onEvent('mainButtonClicked', function(){
-            saveToLocal();
+            gameState.lastSaveTime = Date.now();
             tg.sendData(JSON.stringify(gameState));
             tg.close();
         });
 
-        updateUI();
+        // Запуск
+        initGameData();
     </script>
 </body>
 </html>
