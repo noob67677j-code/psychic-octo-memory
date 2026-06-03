@@ -7,7 +7,7 @@
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
     <style>
         body {
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            font-family: 'Segoe UI', Arial, sans-serif;
             background-color: #1c1c1e;
             color: #ffffff;
             margin: 0;
@@ -21,11 +21,32 @@
             padding: 15px;
             border-radius: 12px;
             margin-bottom: 20px;
-            box-shadow: 0 4px 10px rgba(0,0,0,0.3);
         }
         .stat { font-size: 18px; margin: 5px 0; }
         .money { color: #34c759; font-weight: bold; font-size: 24px; }
         
+        /* Стили для мини-игры (капчи) */
+        .captcha-box {
+            background: #222224;
+            border: 2px dashed #0088cc;
+            border-radius: 12px;
+            padding: 15px;
+            margin-bottom: 20px;
+            display: none; /* Изначально скрыта */
+        }
+        .captcha-text { font-size: 16px; margin-bottom: 10px; color: #ffcc00; white-space: pre-line; }
+        .captcha-input {
+            width: 80%;
+            padding: 10px;
+            font-size: 16px;
+            border-radius: 8px;
+            border: 1px solid #48484a;
+            background: #1c1c1e;
+            color: white;
+            text-align: center;
+            margin-bottom: 10px;
+        }
+
         /* Дерево улучшений */
         .tree-container {
             display: flex;
@@ -41,12 +62,12 @@
             border: 2px solid #48484a;
             border-radius: 12px;
             padding: 15px;
-            transition: all 0.2s ease;
             text-align: left;
             position: relative;
         }
-        .upgrade-node.unlocked { border-color: #34c759; }
-        .upgrade-node.locked { background: #161617; opacity: 0.5; }
+        .upgrade-node.unlocked { border-color: #48484a; }
+        .upgrade-node.active_branch { border-color: #34c759; }
+        .upgrade-node.locked { background: #161617; opacity: 0.4; }
         .upgrade-title { font-weight: bold; font-size: 16px; margin-bottom: 5px; }
         .upgrade-desc { font-size: 12px; color: #aeaee3; margin-bottom: 10px; }
         
@@ -54,8 +75,8 @@
             background: #0088cc;
             color: white;
             border: none;
-            padding: 8px 12px;
-            border-radius: 6px;
+            padding: 10px 12px;
+            border-radius: 8px;
             font-weight: bold;
             cursor: pointer;
             width: 100%;
@@ -79,12 +100,18 @@
     <div class="stats-container">
         <div class="stat">Баланс: <span id="balance" class="money">0</span> ₽</div>
         <div class="stat">Уровень мастерства: <span id="level" style="color:#ffcc00">1</span></div>
-        <div class="stat">Доход: +<span id="income">1</span> ₽/клик</div>
+        <div class="stat">Доход: +<span id="income">1</span> ₽/ремонт</div>
     </div>
 
-    <button class="btn" id="workBtn" onclick="triggerWorkCheck()" style="padding: 18px; font-size: 18px; margin-bottom: 25px; background: #34c759;">
-        🔧 Начать ремонт автомобиля
+    <button class="btn" id="workBtn" onclick="openCaptcha()" style="padding: 15px; font-size: 18px; margin-bottom: 20px; background: #34c759;">
+        🔧 Взять машину на ремонт
     </button>
+
+    <div class="captcha-box" id="captchaBox">
+        <div class="captcha-text" id="captchaQuestion">Загрузка задачи...</div>
+        <input type="number" class="captcha-input" id="captchaAnswer" placeholder="Введите цифры ответа">
+        <button class="btn" onclick="checkCaptcha()" style="background: #34c759;">Сдать работу</button>
+    </div>
 
     <h3>Ветки развития:</h3>
     <div class="tree-container">
@@ -110,11 +137,9 @@
     </div>
 
     <script>
-        // Инициализация Telegram WebApp
         const tg = window.Telegram.WebApp;
-        tg.expand(); // Разворачиваем на весь экран
+        tg.expand();
 
-        // Состояние игры (дефолтное)
         let gameState = {
             balance: 0,
             level: 1,
@@ -126,51 +151,53 @@
             }
         };
 
-        // Загрузка данных из Telegram (если переданы)
-        if (tg.initDataUnsafe && tg.initDataUnsafe.start_param) {
-            // В реальном проекте тут запрашивают данные с сервера,
-            // но для простоты мы будем отправлять данные боту при закрытии.
-        }
+        // База задач для капчи
+        const tasks = [
+            { q: "Порядок замены колеса:\n1. Снять болты\n2. Домкрат\n3. Поставить запаску", a: "213" },
+            { q: "Порядок замены масла:\n1. Залить новое\n2. Слить старое\n3. Скрутить фильтр", a: "231" },
+            { q: "Отключение АКБ:\n1. Снять минус (-)\n2. Снять плюс (+)\n3. Убрать фиксатор", a: "123" }
+        ];
+        let currentTask = null;
 
         function updateUI() {
             document.getElementById('balance').innerText = gameState.balance;
             document.getElementById('level').innerText = gameState.level;
             document.getElementById('income').innerText = gameState.clickIncome;
 
-            // Логика дерева зависимостей
-            // 1. Проверяем Пневмогайковерт (нужен набор ключей)
+            // Проверка дерева зависимостей
             if (gameState.upgrades.tools) {
                 unlockNode('pneumo');
             }
-            // 2. Проверяем Подъемник (нужен пневмогайковерт)
             if (gameState.upgrades.tools && gameState.upgrades.pneumo) {
                 unlockNode('lift');
             }
 
-            // Если апгрейд уже куплен, меняем кнопку
+            // Проверка купленных апгрейдов
             for (let key in gameState.upgrades) {
                 if (gameState.upgrades[key]) {
                     const btn = document.getElementById('btn_' + key);
                     if(btn) {
                         btn.innerText = "Изучено";
                         btn.disabled = true;
-                        document.getElementById('node_' + key).style.borderColor = "#34c759";
+                        document.getElementById('node_' + key).className = "upgrade-node active_branch";
                     }
                 }
             }
 
-            // Кнопка сохранения данных в боте через Главную кнопку ТГ
-            tg.MainButton.setText("Сохранить прогресс в чате");
+            // Кнопка сохранения в ТГ
+            tg.MainButton.setText("Сохранить прогресс");
             tg.MainButton.show();
         }
 
         function unlockNode(id) {
-            document.getElementById('node_' + id).classList.remove('locked');
-            document.getElementById('node_' + id).classList.add('unlocked');
-            const badge = document.getElementById('lock_' + id);
-            if (badge) badge.style.display = 'none';
-            if (!gameState.upgrades[id]) {
-                document.getElementById('btn_' + id).disabled = false;
+            const node = document.getElementById('node_' + id);
+            if(node.classList.contains('locked')) {
+                node.classList.remove('locked');
+                node.classList.add('unlocked');
+                document.getElementById('lock_' + id).style.display = 'none';
+                if (!gameState.upgrades[id]) {
+                    document.getElementById('btn_' + id).disabled = false;
+                }
             }
         }
 
@@ -186,45 +213,44 @@
                 gameState.level += 1;
                 updateUI();
             } else {
-                tg.showAlert("Недостаточно денег для апгрейда!");
+                alert("Недостаточно денег для улучшения!");
             }
         }
 
-        // Гибридная мини-игра (Вариант А + Б)
-        function triggerWorkCheck() {
-            // Выбираем случайную деталь для ремонта
-            const tasks = [
-                { q: "Порядок замены колеса:\n1. Ключ\n2. Домкрат\n3. Колесо", a: "213" },
-                { q: "Порядок замены масла:\n1. Слить масло\n2. Открутить пробку\n3. Залить новое", a: "213" },
-                { q: "Снятие аккумулятора:\n1. Минус (-)\n2. Плюс (+)\n3. Снять фиксатор", a: "123" }
-            ];
+        // ОТКРЫТИЕ ОКНА РАБОТЫ (КАПЧИ)
+        function openCaptcha() {
+            // Выбираем случайную задачу
+            currentTask = tasks[Math.floor(Math.random() * tasks.length)];
+            document.getElementById('captchaQuestion').innerText = currentTask.q;
+            document.getElementById('captchaAnswer').value = ""; // Очищаем поле ввода
             
-            const randomTask = tasks[Math.floor(Math.random() * tasks.length)];
-            
-            // Запрашиваем код через стандартное окно Telegram
-            tg.showPopup({
-                title: '🔧 Мини-игра: Ремонт',
-                message: randomTask.q + '\n\nВведите цифры порядка действий (например: 123):',
-                buttons: [{id: 'submit', type: 'default', text: 'Готово'}]
-            }, function(buttonId) {
-                // Из-за ограничений простых поп-апов ТГ, сделаем симуляцию ввода через prompt:
-                let playerAnswer = prompt("Введи комбинацию ремонта (3 цифры):");
-                if (playerAnswer === randomTask.a) {
-                    gameState.balance += gameState.clickIncome;
-                    tg.showAlert(`Успешно починено! Вы заработали +${gameState.clickIncome} ₽`);
-                    updateUI();
-                } else {
-                    tg.showAlert("Ошибка сборки! Машина сломана, денег не дали.");
-                }
-            });
+            // Показываем блок с капчей и скрываем кнопку "Взять машину"
+            document.getElementById('captchaBox').style.display = 'block';
+            document.getElementById('workBtn').style.display = 'none';
         }
 
-        // Отправка данных назад в бота при клике на главную кнопку
+        // ПРОВЕРКА ОТВЕТА
+        function checkCaptcha() {
+            const userAnswer = document.getElementById('captchaAnswer').value.trim();
+            
+            if (userAnswer === currentTask.a) {
+                gameState.balance += gameState.clickIncome;
+                alert(`🔧 Успешный ремонт! Заработано: +${gameState.clickIncome} ₽`);
+            } else {
+                alert("❌ Ошибка! Ты неправильно собрал узел. Деньги потеряны.");
+            }
+
+            // Прячем капчу обратно, возвращаем кнопку работы
+            document.getElementById('captchaBox').style.display = 'none';
+            document.getElementById('workBtn').style.display = 'block';
+            updateUI();
+        }
+
+        // Отправка данных боту на Python при клике на нижнюю кнопку ТГ
         tg.onEvent('mainButtonClicked', function(){
             tg.sendData(JSON.stringify(gameState));
         });
 
-        // Первичный рендеринг
         updateUI();
     </script>
 </body>
