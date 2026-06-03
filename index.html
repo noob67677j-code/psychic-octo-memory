@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Автосервис КЛИКЕР</title>
+    <title>Автосервис КЛИКЕР PRO</title>
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
     <style>
         body {
@@ -14,23 +14,23 @@
             padding: 20px;
             text-align: center;
             user-select: none;
-            -webkit-user-select: none; /* Чтобы не выделялся текст при частых тапах */
+            -webkit-user-select: none;
         }
         h1 { color: #0088cc; margin-bottom: 5px; }
         .stats-container {
             background: #2c2c2e;
             padding: 15px;
             border-radius: 12px;
-            margin-bottom: 25px;
+            margin-bottom: 20px;
             box-shadow: 0 4px 10px rgba(0,0,0,0.3);
         }
         .stat { font-size: 18px; margin: 5px 0; }
         .money { color: #34c759; font-weight: bold; font-size: 28px; }
         
-        /* ГЛАВНАЯ КНОПКА-КЛИКЕР */
+        /* КНОПКА-КЛИКЕР */
         .click-btn {
-            width: 180px;
-            height: 180px;
+            width: 150px;
+            height: 150px;
             border-radius: 50%;
             background: radial-gradient(circle, #34c759 0%, #248a3d 100%);
             border: 5px solid #ffffff;
@@ -39,26 +39,44 @@
             font-weight: bold;
             cursor: pointer;
             box-shadow: 0 8px 20px rgba(0,0,0,0.5);
-            margin: 0 auto 30px auto;
+            margin: 0 auto 20px auto;
             display: flex;
             align-items: center;
             justify-content: center;
             transition: transform 0.05s ease;
             outline: none;
         }
-        /* Эффект нажатия (сжатие кнопки) */
-        .click-btn:active {
-            transform: scale(0.92);
-            background: radial-gradient(circle, #248a3d 0%, #1b662d 100%);
+        .click-btn:active { transform: scale(0.92); }
+
+        /* ПЕРЕКЛЮЧАТЕЛИ КОЛИЧЕСТВА (BUY X) */
+        .multiplier-container {
+            display: flex;
+            justify-content: center;
+            gap: 10px;
+            margin-bottom: 25px;
+        }
+        .mult-btn {
+            background: #3a3a3c;
+            color: white;
+            border: 2px solid #48484a;
+            padding: 8px 15px;
+            border-radius: 20px;
+            font-weight: bold;
+            cursor: pointer;
+            font-size: 14px;
+        }
+        .mult-btn.active {
+            background: #0088cc;
+            border-color: #0088cc;
         }
 
-        /* Дерево улучшений */
+        /* ДЕРЕВО УЛУЧШЕНИЙ */
         .tree-container {
             display: flex;
             flex-direction: column;
             gap: 15px;
             align-items: center;
-            margin-top: 20px;
+            margin-top: 15px;
         }
         .upgrade-node {
             width: 90%;
@@ -70,14 +88,14 @@
             text-align: left;
             position: relative;
         }
-        .upgrade-node.unlocked { border-color: #48484a; }
-        .upgrade-node.bought { border-color: #34c759; background: #2c3e2e; }
+        .upgrade-node.unlocked { border-color: #0088cc; }
         .upgrade-node.locked { background: #161617; opacity: 0.3; }
-        .upgrade-title { font-weight: bold; font-size: 16px; margin-bottom: 5px; }
+        .upgrade-title { font-weight: bold; font-size: 16px; margin-bottom: 5px; display: flex; justify-content: space-between; }
         .upgrade-desc { font-size: 12px; color: #aeaee3; margin-bottom: 10px; }
+        .lvl-badge { background: #0088cc; color: white; padding: 2px 8px; border-radius: 10px; font-size: 12px; }
         
         .btn {
-            background: #0088cc;
+            background: #34c759;
             color: white;
             border: none;
             padding: 10px 12px;
@@ -99,37 +117,56 @@
 </head>
 <body>
 
-    <h1>Гаражный Кликер</h1>
-    <p style="color: #8e8e93; margin-top: 0;">Просто тапай на гайку!</p>
+    <h1>Гаражный Кликер PRO</h1>
 
     <div class="stats-container">
         <div class="stat">Баланс: <span id="balance" class="money">0</span> ₽</div>
-        <div class="stat">Уровень СТО: <span id="level" style="color:#ffcc00">1</span></div>
         <div class="stat">Сила тапа: +<span id="income">1</span> ₽</div>
     </div>
 
+    <!-- ТАП КНОПКА -->
     <div class="click-btn" onclick="makeClick()">🔧</div>
 
-    <h3>Дерево прокачки:</h3>
+    <!-- МУЛЬТИПЛИКАТОРЫ ПОКУПКИ -->
+    <div class="multiplier-container">
+        <button class="mult-btn active" id="mult_1" onclick="setMultiplier(1)">x1</button>
+        <button class="mult-btn" id="mult_5" onclick="setMultiplier(5)">x5</button>
+        <button class="mult-btn" id="mult_10" onclick="setMultiplier(10)">x10</button>
+        <button class="mult-btn" id="mult_20" onclick="setMultiplier(20)">x20</button>
+    </div>
+
+    <h3>Дерево улучшений:</h3>
     <div class="tree-container">
+        <!-- Улучшение 1 -->
         <div class="upgrade-node unlocked" id="node_tools">
-            <div class="upgrade-title">🛠️ Набор китайских ключей</div>
-            <div class="upgrade-desc">Увеличивает силу тапа на +2 ₽.</div>
-            <button class="btn" id="btn_tools" onclick="buyUpgrade('tools', 50)">Купить за 50 ₽</button>
+            <div class="upgrade-title">
+                <span>🛠️ Набор ключей</span>
+                <span class="lvl-badge" id="lvl_tools">Lvl 0</span>
+            </div>
+            <div class="upgrade-desc">Каждый уровень дает +1 ₽ к тапу.</div>
+            <button class="btn" id="btn_tools" onclick="buyUpgrade('tools')">Купить</button>
         </div>
 
+        <!-- Улучшение 2 (Нужен 5 lvl Ключей) -->
         <div class="upgrade-node locked" id="node_pneumo">
-            <span class="locked-badge" id="lock_pneumo">🔒 Требуется: Набор ключей</span>
-            <div class="upgrade-title">💨 Пневмогайковерт</div>
-            <div class="upgrade-desc">Тапать станет легче! Дает +10 ₽ к силе тапа.</div>
-            <button class="btn" id="btn_pneumo" onclick="buyUpgrade('pneumo', 300)" disabled>Купить за 300 ₽</button>
+            <span class="locked-badge" id="lock_pneumo">🔒 Требуется: Набор ключей (5 ур.)</span>
+            <div class="upgrade-title">
+                <span>💨 Пневмогайковерт</span>
+                <span class="lvl-badge" id="lvl_pneumo">Lvl 0</span>
+            </div>
+            <div class="upgrade-desc">Каждый уровень дает +5 ₽ к тапу.</div>
+            <button class="btn" id="btn_pneumo" onclick="buyUpgrade('pneumo')" disabled>Купить</button>
         </div>
 
+        <!-- Улучшение 3 (Нужен 5 lvl Гайковерта) -->
         <div class="upgrade-node locked" id="node_lift">
-            <span class="locked-badge" id="lock_lift">🔒 Требуется: Пневмогайковерт</span>
-            <div class="upgrade-title">🏗️ Гидравлический подъемник</div>
-            <div class="upgrade-desc">Мощный буст! Дает +50 ₽ к силе тапа.</div>
-            <button class="btn" id="btn_lift" onclick="buyUpgrade('lift', 1500)" disabled>Купить за 1500 ₽</button>
+            <span class="locked-badge" id="lock_lift">🔒 Требуется: Пневмогайковерт (5 ур.)</span>
+            <div class="upgrade-title">
+                <span>🏗️ Подъемник</span>
+                <span class="lvl-badge" id="lvl_lift">Lvl 0</span>
+            </div>
+            <div class="upgrade-desc">Каждый уровень дает +25 ₽ к тапу.</div>
+            <button class="btn" id="btn_lift" onclick="buyUpgrade('lift')" disabled>Купить</button>
         </div>
     </div>
 
@@ -137,92 +174,126 @@
         const tg = window.Telegram.WebApp;
         tg.expand();
 
-        // Состояние кликера
+        // Текущий выбранный режим покупки (1, 5, 10 или 20)
+        let buyMultiplier = 1;
+
+        // Базовые параметры игры
         let gameState = {
             balance: 0,
-            level: 1,
             clickIncome: 1,
             upgrades: {
-                tools: false,
-                pneumo: false,
-                lift: false
+                tools: 0,   // Теперь тут хранятся уровни (числа)
+                pneumo: 0,
+                lift: 0
             }
         };
 
-        // КЛИК ФУНКЦИЯ
+        // Конфигурация апгрейдов: базовая цена, подорожание (1.15 = +15% за уровень) и сила буста
+        const upgradeConfig = {
+            tools: { baseCost: 50, factor: 1.15, power: 1 },
+            pneumo: { baseCost: 300, factor: 1.18, power: 5 },
+            lift: { baseCost: 1500, factor: 1.22, power: 25 }
+        };
+
+        // Загрузка локального сохранения
+        if (localStorage.getItem('garage_clicker_save_v2')) {
+            try {
+                gameState = JSON.parse(localStorage.getItem('garage_clicker_save_v2'));
+            } catch (e) { console.log("Ошибка загрузки сейва"); }
+        }
+
         function makeClick() {
             gameState.balance += gameState.clickIncome;
+            saveToLocal();
             updateUI();
         }
 
-        // ОБНОВЛЕНИЕ ЭКРАНА
+        function setMultiplier(amount) {
+            buyMultiplier = amount;
+            // Переключаем активный класс на кнопках
+            document.querySelectorAll('.mult-btn').forEach(btn => btn.classList.remove('active'));
+            document.getElementById('mult_' + amount).classList.add('active');
+            updateUI();
+        }
+
+        // Расчет стоимости N уровней апгрейда с учетом прогрессивной шкалы цены
+        def getCostForLevels(type, currentLvl, count) {
+            let totalCost = 0;
+            let tempLvl = currentLvl;
+            const config = upgradeConfig[type];
+            for (let i = 0; i < count; i++) {
+                totalCost += Math.floor(config.baseCost * Math.pow(config.factor, tempLvl));
+                tempLvl++;
+            }
+            return totalCost;
+        }
+
         function updateUI() {
             document.getElementById('balance').innerText = gameState.balance;
-            document.getElementById('level').innerText = gameState.level;
             document.getElementById('income').innerText = gameState.clickIncome;
 
-            // Логика дерева (зависимости веток)
-            if (gameState.upgrades.tools) {
-                unlockNode('pneumo');
-            }
-            if (gameState.upgrades.tools && gameState.upgrades.pneumo) {
-                unlockNode('lift');
-            }
+            // Обновляем бейджи уровней
+            document.getElementById('lvl_tools').innerText = "Lvl " + gameState.upgrades.tools;
+            document.getElementById('lvl_pneumo').innerText = "Lvl " + gameState.upgrades.pneumo;
+            document.getElementById('lvl_lift').innerText = "Lvl " + gameState.upgrades.lift;
 
-            // Проверка купленных апгрейдов и блокировка кнопок
+            // Проверка условий дерева зависимостей (открываем ветки, если прошлый апгрейд >= 5 уровня)
+            if (gameState.upgrades.tools >= 5) unlockNode('pneumo');
+            if (gameState.upgrades.pneumo >= 5) unlockNode('lift');
+
+            // Обновляем цены на кнопках с учетом выбранного x1, x5, x10, x20
             for (let key in gameState.upgrades) {
-                if (gameState.upgrades[key]) {
-                    const btn = document.getElementById('btn_' + key);
-                    if(btn) {
-                        btn.innerText = "Изучено 👍";
-                        btn.disabled = true;
-                        document.getElementById('node_' + key).className = "upgrade-node bought";
-                    }
+                const cost = getCostForLevels(key, gameState.upgrades[key], buyMultiplier);
+                const btn = document.getElementById('btn_' + key);
+                if (btn && !document.getElementById('node_' + key).classList.contains('locked')) {
+                    btn.innerText = `Купить x${buyMultiplier} [${cost} ₽]`;
                 }
             }
 
-            // Показываем кнопку сохранения в ТГ
-            tg.MainButton.setText("Сохранить баланс");
+            tg.MainButton.setText("Синхронизировать с Ботом");
             tg.MainButton.show();
         }
 
-        // РАЗБЛОКИРОВКА СЛЕДУЮЩЕЙ ВЕТКИ
         function unlockNode(id) {
             const node = document.getElementById('node_' + id);
-            if(node && node.classList.contains('locked')) {
+            if (node && node.classList.contains('locked')) {
                 node.classList.remove('locked');
                 node.classList.add('unlocked');
                 document.getElementById('lock_' + id).style.display = 'none';
-                if (!gameState.upgrades[id]) {
-                    document.getElementById('btn_' + id).disabled = false;
-                }
+                document.getElementById('btn_' + id).disabled = false;
             }
         }
 
-        // ПОКУПКА АПГРЕЙДА
-        function buyUpgrade(type, cost) {
-            if (gameState.balance >= cost && !gameState.upgrades[type]) {
-                gameState.balance -= cost;
-                gameState.upgrades[type] = true;
-                
-                // Добавляем силу клика в зависимости от ветки
-                if (type === 'tools') gameState.clickIncome += 2;
-                if (type === 'pneumo') gameState.clickIncome += 10;
-                if (type === 'lift') gameState.clickIncome += 50;
+        function buyUpgrade(type) {
+            const currentLvl = gameState.upgrades[type];
+            const cost = getCostForLevels(type, currentLvl, buyMultiplier);
 
-                gameState.level += 1; // Повышаем уровень СТО
+            if (gameState.balance >= cost) {
+                gameState.balance -= cost;
+                gameState.upgrades[type] += buyMultiplier; // Добавляем уровни
+
+                // Пересчитываем всю силу тапа заново на основе уровней
+                gameState.clickIncome = 1 + 
+                    (gameState.upgrades.tools * upgradeConfig.tools.power) +
+                    (gameState.upgrades.pneumo * upgradeConfig.pneumo.power) +
+                    (gameState.upgrades.lift * upgradeConfig.lift.power);
+
+                saveToLocal();
                 updateUI();
             } else {
-                alert("Не хватает рублей для покупки!");
+                alert("Не хватает рублей для массовой покупки!");
             }
         }
 
-        // Отправка сохранения в твой Python бот
+        function saveToLocal() {
+            localStorage.setItem('garage_clicker_save_v2', JSON.stringify(gameState));
+        }
+
         tg.onEvent('mainButtonClicked', function(){
             tg.sendData(JSON.stringify(gameState));
+            tg.close();
         });
 
-        // Первый запуск
         updateUI();
     </script>
 </body>
