@@ -2,8 +2,8 @@
 <html lang="ru">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Quantum Clicker</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Quantum Clicker Pro</title>
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
     <style>
         body {
@@ -15,16 +15,24 @@
             text-align: center;
             user-select: none;
             -webkit-user-select: none;
+            overflow-x: hidden;
         }
+
         h1 { color: #e3e2e6; margin: 0 0 4px 0; font-size: 24px; font-weight: 400; }
         p { font-size: 14px; color: #919094; margin-top: 0; }
         
-        .stats-container { background: #1d1b20; padding: 20px; border-radius: 24px; margin-bottom: 20px; }
+        /* Главное табло баланса */
+        .stats-container {
+            background: #1d1b20;
+            padding: 20px;
+            border-radius: 24px;
+            margin-bottom: 20px;
+        }
         .balance-label { font-size: 13px; color: #cbc4cf; letter-spacing: 0.5px; text-transform: uppercase; }
-        .money { color: #34c759; font-weight: 500; font-size: 36px; display: block; margin: 8px 0; }
+        .money { color: #34c759; font-weight: 500; font-size: 36px; display: block; margin: 8px 0; min-height: 44px; }
         .sub-stats { display: flex; justify-content: space-around; margin-top: 12px; font-size: 14px; color: #919094; background: #262429; padding: 8px; border-radius: 16px; }
 
-        /* Навигация (4 вкладки) */
+        /* Таб бар */
         .tab-bar { position: fixed; bottom: 0; left: 0; right: 0; height: 72px; background: #1d1b20; display: flex; justify-content: space-around; align-items: center; z-index: 1000; box-shadow: 0 -2px 10px rgba(0,0,0,0.2); }
         .tab-btn { background: none; border: none; color: #cbc4cf; font-size: 11px; cursor: pointer; display: flex; flex-direction: column; align-items: center; gap: 4px; width: 25%; transition: color 0.2s ease; }
         .tab-btn .icon-wrapper { padding: 4px 16px; border-radius: 16px; transition: background-color 0.2s ease; }
@@ -35,9 +43,44 @@
         .tab-content { display: none; }
         .tab-content.active { display: block; }
 
-        .click-btn { width: 150px; height: 150px; border-radius: 28px; background: #adc6ff; color: #002e69; font-size: 60px; cursor: pointer; box-shadow: 0 8px 16px rgba(0,0,0,0.3); margin: 40px auto; display: flex; align-items: center; justify-content: center; transition: transform 0.1s cubic-bezier(0, 0, 0.2, 1), background-color 0.2s; border: none; outline: none; }
-        .click-btn:active { transform: scale(0.95); background: #85aaff; }
+        /* АНИМИРОВАННОЕ ЯДРО КЛИКЕРА */
+        .click-area { position: relative; margin: 40px auto; width: 160px; height: 160px; }
+        .click-btn {
+            width: 160px; height: 160px; border-radius: 32px;
+            background: #adc6ff; color: #002e69; font-size: 65px;
+            cursor: pointer; border: none; outline: none;
+            display: flex; align-items: center; justify-content: center;
+            transition: transform 0.08s cubic-bezier(0, 0, 0.2, 1);
+            position: relative; z-index: 2;
+            box-shadow: 0 8px 24px rgba(173, 198, 255, 0.2);
+        }
+        .click-btn .icon-energy { transition: transform 0.1s ease; display: inline-block; }
+        
+        /* Эффект всплеска (Ripple) при клике */
+        .click-btn::after {
+            content: ''; position: absolute; top: 0; left: 0; right: 0; bottom: 0;
+            border-radius: 32px; background: transparent;
+            box-shadow: 0 0 0 0 rgba(173, 198, 255, 0.6);
+            transition: opacity 0.2s, box-shadow 0.2s;
+            opacity: 0; z-index: -1;
+        }
+        .click-btn:active { transform: scale(0.93); }
+        .click-btn:active .icon-energy { transform: scale(0.85) rotate(-15deg); }
+        .click-btn.rippling::after { opacity: 1; box-shadow: 0 0 0 25px rgba(173, 198, 255, 0); transition: 0s; }
 
+        /* ВЫЛЕТАЮЩИЕ ЦИФРЫ (+X) */
+        .floating-number {
+            position: fixed; pointer-events: none;
+            color: #adc6ff; font-weight: bold; font-size: 22px;
+            z-index: 9999; animation: floatUp 0.6s cubic-bezier(0.1, 0.8, 0.3, 1) forwards;
+            text-shadow: 0 2px 4px rgba(0,0,0,0.5);
+        }
+        @keyframes floatUp {
+            0% { transform: translateY(0) scale(1); opacity: 1; }
+            100% { transform: translateY(-80px) scale(0.8); opacity: 0; }
+        }
+
+        /* Настройки карточек закупа */
         .multiplier-container { display: flex; justify-content: center; margin: 8px 0 24px 0; background: #262429; border-radius: 20px; padding: 4px; width: fit-content; margin: auto; }
         .mult-btn { background: none; color: #cbc4cf; border: none; padding: 6px 16px; border-radius: 16px; font-weight: 500; cursor: pointer; font-size: 13px; transition: all 0.2s; }
         .mult-btn.active { background: #4f378b; color: #e6e1e5; }
@@ -49,18 +92,25 @@
         .upgrade-desc { font-size: 13px; color: #919094; margin: 6px 0 14px 0; }
         .lvl-badge { background: #332d41; color: #d0bcff; padding: 4px 10px; border-radius: 8px; font-size: 12px; font-weight: 500; }
         
-        .btn { background: #34c759; color: #ffffff; border: none; padding: 10px 16px; border-radius: 100px; font-weight: 500; cursor: pointer; width: 100%; font-size: 14px; box-shadow: 0 1px 3px rgba(0,0,0,0.2); }
-        .btn.passive-btn { background: #0088cc; }
-        .btn:disabled { background: #313033; color: #605d62; cursor: not-allowed; box-shadow: none; }
+        /* СМАРТ-КНОПКИ С ЦВЕТОВОЙ ИНДИКАЦИЕЙ */
+        .btn { 
+            color: #ffffff; border: none; padding: 10px 16px; border-radius: 100px; 
+            font-weight: 500; cursor: pointer; width: 100%; font-size: 14px; 
+            box-shadow: 0 1px 3px rgba(0,0,0,0.2); transition: background-color 0.2s, color 0.2s; 
+        }
+        /* Стили состояния доступности закупки */
+        .btn.available { background: #34c759; color: #ffffff; }
+        .btn.not-available { background: #313033; color: #919094; }
+        .btn:disabled { background: #1d1b20; color: #48484a; cursor: not-allowed; box-shadow: none; }
+        
         .locked-badge { position: absolute; right: 16px; top: 16px; color: #ffb4ab; font-size: 12px; font-weight: 500; }
 
-        /* СТИЛИ ДЛЯ СПИСКА ЛИДЕРОВ */
+        /* Лидерборд */
         .leaderboard-list { display: flex; flex-direction: column; gap: 8px; width: 95%; max-width: 360px; margin: 15px auto; padding: 0; }
         .leader-item { display: flex; align-items: center; justify-content: space-between; background: #211f26; padding: 12px 16px; border-radius: 16px; box-sizing: border-box; }
         .leader-rank { font-weight: bold; width: 30px; text-align: left; color: #adc6ff; }
         .leader-name { flex-grow: 1; text-align: left; font-weight: 500; text-overflow: ellipsis; overflow: hidden; white-space: nowrap; }
         .leader-score { font-weight: 500; color: #34c759; }
-        /* Подсветка топ-3 мест */
         .rank-1 { color: #ffcc00; }
         .rank-2 { color: #cccccc; }
         .rank-3 { color: #cd7f32; }
@@ -84,14 +134,16 @@
         <button class="mult-btn" id="mult_20" onclick="setMultiplier(20)">x20</button>
     </div>
 
-    <!-- ВКЛАДКА 1: КЛИКЕР -->
     <div id="tab_main" class="tab-content active">
         <h1>Ядро генерации</h1>
         <p>Нажимай на триггер для ручной выработки энергии</p>
-        <button class="click-btn" onclick="makeClick()">⚡</button>
+        <div class="click-area">
+            <button class="click-btn" id="coreBtn" onmousedown="makeClick(event)" ontouchstart="makeClick(event)">
+                <span class="icon-energy">⚡</span>
+            </button>
+        </div>
     </div>
 
-    <!-- ВКЛАДКА 2: КЛИКИ -->
     <div id="tab_upgrades" class="tab-content">
         <h1>Модификаторы клика</h1>
         <div class="tree-container">
@@ -109,35 +161,31 @@
         </div>
     </div>
 
-    <!-- ВКЛАДКА 3: АВТОМАТИЗАЦИЯ -->
     <div id="tab_office" class="tab-content">
         <h1>Автоматизация</h1>
         <div class="tree-container">
             <div class="upgrade-node" id="node_passive_1">
                 <div class="upgrade-title"><span>🤖 Базовый бот-скрипт</span><span class="lvl-badge" id="lvl_passive_1">Lvl 0</span></div>
                 <div class="upgrade-desc">Генерирует +2 ₽/сек фонового дохода за уровень.</div>
-                <button class="btn passive-btn" id="btn_passive_1" onclick="buyUpgrade('passive_1')">Купить</button>
+                <button class="btn" id="btn_passive_1" onclick="buyUpgrade('passive_1')">Купить</button>
             </div>
             <div class="upgrade-node locked" id="node_passive_2">
                 <span class="locked-badge" id="lock_passive_2">🔒 Нужен Lvl 5 Скрипта</span>
                 <div class="upgrade-title"><span>🧠 Нейросетевой кластер</span><span class="lvl-badge" id="lvl_passive_2">Lvl 0</span></div>
                 <div class="upgrade-desc">Генерирует +15 ₽/сек фонового дохода за уровень.</div>
-                <button class="btn passive-btn" id="btn_passive_2" onclick="buyUpgrade('passive_2')" disabled>Купить</button>
+                <button class="btn" id="btn_passive_2" onclick="buyUpgrade('passive_2')" disabled>Купить</button>
             </div>
         </div>
     </div>
 
-    <!-- ВКЛАДКА 4: СПИСОК ЛИДЕРОВ -->
     <div id="tab_leaderboard" class="tab-content">
         <h1>Рейтинг игроков</h1>
         <p>Топ-10 пользователей с наибольшим балансом</p>
         <div class="leaderboard-list" id="leaderboardContainer">
-            <!-- Сюда JavaScript вставит данные лидеров -->
             <div style="color: #919094; margin-top: 20px;">Загрузка рейтинга...</div>
         </div>
     </div>
 
-    <!-- ТАБ БАР С 4 КНОПКАМИ -->
     <div class="tab-bar">
         <button class="tab-btn active" id="btn_tab_main" onclick="switchTab('main')">
             <div class="icon-wrapper"><span class="icon">⚡</span></div><span>Генерация</span>
@@ -170,13 +218,10 @@
             passive_2: { baseCost: 800, factor: 1.20, power: 15 }
         };
 
-        // Заглушка дефолтных лидеров (если бот еще не передал актуальные данные)
         let leaderData = [
             { name: "QuantumGod", balance: 500000 },
             { name: "ClickerPro", balance: 250000 },
-            { name: "CyberGleb", balance: 120000 },
-            { name: "Neo", balance: 75000 },
-            { name: "User_482", balance: 12000 }
+            { name: "CyberGleb", balance: 120000 }
         ];
 
         function switchTab(tabId) {
@@ -194,21 +239,14 @@
             updateUI();
         }
 
-        // РЕНДЕР СПИСКА ЛИДЕРОВ В HTML
         function renderLeaderboard() {
             const container = document.getElementById('leaderboardContainer');
             container.innerHTML = "";
-
-            // Сортируем лидеров по убыванию баланса
             leaderData.sort((a, b) => b.balance - a.balance);
 
             leaderData.forEach((player, index) => {
                 const rank = index + 1;
-                let rankClass = "";
-                if (rank === 1) rankClass = "rank-1";
-                if (rank === 2) rankClass = "rank-2";
-                if (rank === 3) rankClass = "rank-3";
-
+                let rankClass = (rank === 1) ? "rank-1" : (rank === 2) ? "rank-2" : (rank === 3) ? "rank-3" : "";
                 const item = document.createElement('div');
                 item.className = 'leader-item';
                 item.innerHTML = `
@@ -220,16 +258,9 @@
             });
         }
 
-        // Принимаем данные лидеров от Python-бота (через URL-параметры или инжект, сделаем парсинг initData)
-        try {
-            // Если твой бот передаст список лидеров при открытии, мы сможем поймать его тут
-            // Для локальных тестов пока оставим заглушку, которая автоматически дополняется твоим результатом
-        } catch(e) {}
-
-        // Локальное сохранение и оффлайн-доход
-        if (localStorage.getItem('pure_clicker_m3_top')) {
+        if (localStorage.getItem('pure_clicker_ux_m3')) {
             try {
-                gameState = JSON.parse(localStorage.getItem('pure_clicker_m3_top'));
+                gameState = JSON.parse(localStorage.getItem('pure_clicker_ux_m3'));
                 const now = Date.now();
                 const secondsOffline = Math.floor((now - gameState.lastSaveTime) / 1000);
                 
@@ -240,31 +271,68 @@
                         tg.showAlert(`💤 Фоновый доход за время отсутствия (${secondsOffline} сек): +${offlineEarnings} ₽!`);
                     }, 500);
                 }
-            } catch (e) { console.log("Ошибка загрузки"); }
+            } catch (e) {}
         }
 
+        // ПЛАВНЫЙ СЧЕТЧИК (Идея №4): обновление баланса каждые 50мс (20 раз в секунду)
+        const updateFPS = 20;
         setInterval(function() {
             if (gameState.passiveIncome > 0) {
-                gameState.balance += gameState.passiveIncome;
-                document.getElementById('balance').innerText = Math.floor(gameState.balance) + " ₽";
+                // Добавляем микро-долю пассивки за один фрейм таймера
+                gameState.balance += (gameState.passiveIncome / updateFPS);
                 
-                // Динамически обновляем твой баланс в массиве лидеров, если ты там есть
+                // Синхронизация имени в лидерборде
                 let myUsername = tg.initDataUnsafe?.user?.username || tg.initDataUnsafe?.user?.first_name || "Ты";
                 let myEntry = leaderData.find(el => el.name === myUsername);
-                if (!myEntry) {
-                    leaderData.push({ name: myUsername, balance: gameState.balance });
-                } else {
-                    myEntry.balance = gameState.balance;
-                }
-                
-                if (Math.random() < 0.2) { saveToLocal(); }
+                if (!myEntry) leaderData.push({ name: myUsername, balance: gameState.balance });
+                else myEntry.balance = gameState.balance;
             }
-        }, 1000);
+            // Постоянно обновляем только текст баланса и цвета смарт-кнопок
+            document.getElementById('balance').innerText = Math.floor(gameState.balance).toLocaleString('ru-RU') + " ₽";
+            updateSmartButtons();
+        }, 1000 / updateFPS);
 
-        function makeClick() {
+        // Автосейв раз в 10 секунд
+        setInterval(() => { saveToLocal(); }, 10000);
+
+        // КЛИКЕР С АНИМАЦИЕЙ (Идея №2) И ВЫЛЕТАЮЩИМИ ЦИФРАМИ (Идея №1)
+        function makeClick(event) {
+            // Предотвращаем двойное срабатывание (на мобилках touch + mouse)
+            if (event.type === 'touchstart') event.preventDefault();
+            else if (event.type === 'mousedown' && 'ontouchstart' in window) return;
+
             gameState.balance += gameState.clickIncome;
             if (tg.HapticFeedback) tg.HapticFeedback.impactOccurred('light');
+
+            // Анимация круговой волны на кнопке
+            const btn = document.getElementById('coreBtn');
+            btn.classList.remove('rippling');
+            void btn.offsetWidth; // Магия JS для перезапуска CSS-анимации
+            btn.classList.add('rippling');
+
+            // Создание летящей цифры урона
+            createFloatingNumber(event);
             updateUI();
+        }
+
+        function createFloatingNumber(event) {
+            let clientX, clientY;
+            if (event.touches && event.touches[0]) {
+                clientX = event.touches[0].clientX;
+                clientY = event.touches[0].clientY;
+            } else {
+                clientX = event.clientX;
+                clientY = event.clientY;
+            }
+
+            const num = document.createElement('div');
+            num.className = 'floating-number';
+            num.innerText = `+${gameState.clickIncome}`;
+            num.style.left = `${clientX - 15}px`;
+            num.style.top = `${clientY - 20}px`;
+
+            document.body.appendChild(num);
+            setTimeout(() => { num.remove(); }, 600);
         }
 
         function setMultiplier(amount) {
@@ -285,10 +353,11 @@
             return totalCost;
         }
 
+        // ТЯЖЕЛОЕ ОБНОВЛЕНИЕ СТАТИСТИКИ (Вызывается только при покупках)
+         Berkut = false;
         function updateUI() {
-            document.getElementById('balance').innerText = Math.floor(gameState.balance) + " ₽";
-            document.getElementById('income').innerText = gameState.clickIncome + " ₽";
-            document.getElementById('passiveIncome').innerText = gameState.passiveIncome + " ₽/с";
+            document.getElementById('income').innerText = "+" + gameState.clickIncome + " ₽";
+            document.getElementById('passiveIncome').innerText = "+" + gameState.passiveIncome + " ₽/с";
 
             for (let key in gameState.upgrades) {
                 const lvlEl = document.getElementById('lvl_' + key);
@@ -298,16 +367,30 @@
             if (gameState.upgrades.click_1 >= 5) unlockNode('click_2');
             if (gameState.upgrades.passive_1 >= 5) unlockNode('passive_2');
 
+            updateSmartButtons();
+
+            tg.MainButton.setText("Синхронизировать прогресс");
+            tg.MainButton.show();
+        }
+
+        // СМАРТ-ФИЛЬТР КНОПОК (Идея №5)
+        function updateSmartButtons() {
             for (let key in gameState.upgrades) {
                 const cost = getCostForLevels(key, gameState.upgrades[key], buyMultiplier);
                 const btn = document.getElementById('btn_' + key);
-                if (btn && !document.getElementById('node_' + key).classList.contains('locked')) {
-                    btn.innerText = `Купить x${buyMultiplier} • ${cost} ₽`;
+                const node = document.getElementById('node_' + key);
+                
+                if (!btn || node.classList.contains('locked')) continue;
+
+                if (gameState.balance >= cost) {
+                    btn.className = "btn available";
+                    btn.innerText = `Купить x${buyMultiplier} • ${cost.toLocaleString('ru-RU')} ₽`;
+                } else {
+                    btn.className = "btn not-available";
+                    let diff = Math.ceil(cost - gameState.balance);
+                    btn.innerText = `Еще ${diff.toLocaleString('ru-RU')} ₽`;
                 }
             }
-
-            tg.MainButton.setText("Сохранить прогресс в облаке");
-            tg.MainButton.show();
         }
 
         function unlockNode(id) {
@@ -339,14 +422,12 @@
 
                 saveToLocal();
                 updateUI();
-            } else {
-                alert("Недостаточно средств");
             }
         }
 
         function saveToLocal() {
             gameState.lastSaveTime = Date.now();
-            localStorage.setItem('pure_clicker_m3_top', JSON.stringify(gameState));
+            localStorage.setItem('pure_clicker_ux_m3', JSON.stringify(gameState));
         }
 
         tg.onEvent('mainButtonClicked', function(){
