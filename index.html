@@ -3,182 +3,266 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Просто кликай!</title>
+    <title>Автосервис: Корпорация</title>
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
     <style>
+        /* Базовые Material-настройки */
         body {
-            font-family: 'Segoe UI', Arial, sans-serif;
-            background-color: #1c1c1e;
-            color: #ffffff;
+            font-family: 'Roboto', 'Segoe UI', system-ui, -apple-system, sans-serif;
+            background-color: #111218; /* Глубокий темный фон Material 3 */
+            color: #e3e2e6;
             margin: 0;
-            padding: 20px;
+            padding: 16px 16px 90px 16px;
             text-align: center;
             user-select: none;
             -webkit-user-select: none;
         }
-        h1 { color: #0088cc; margin-bottom: 5px; font-size: 24px; }
-        .stats-container {
-            background: #2c2c2e;
-            padding: 15px;
-            border-radius: 12px;
-            margin-bottom: 15px;
-            box-shadow: 0 4px 10px rgba(0,0,0,0.3);
+
+        h1 { 
+            color: #e3e2e6; 
+            margin: 0 0 4px 0; 
+            font-size: 24px; 
+            font-weight: 400; /* В Material заголовки более легкие */
         }
-        .stat { font-size: 16px; margin: 4px 0; color: #aeaee3; }
-        .money { color: #34c759; font-weight: bold; font-size: 30px; display: block; margin-top: 5px; }
+        p { font-size: 14px; color: #919094; margin-top: 0; }
         
-        /* КНОПКА-КЛИКЕР */
-        .click-btn {
-            width: 140px;
-            height: 140px;
-            border-radius: 50%;
-            background: radial-gradient(circle, #34c759 0%, #248a3d 100%);
-            border: 5px solid #ffffff;
-            color: white;
-            font-size: 50px;
-            font-weight: bold;
+        /* ПАНЕЛЬ МОНИТОРИНГА (Большая Material-карточка) */
+        .stats-container {
+            background: #1d1b20; /* Цвет контейнера M3 Surface */
+            padding: 20px;
+            border-radius: 24px; /* Фирменное сильное скругление */
+            margin-bottom: 20px;
+        }
+        .balance-label {
+            font-size: 13px;
+            color: #cbc4cf;
+            letter-spacing: 0.5px;
+            text-transform: uppercase;
+        }
+        .money { 
+            color: #34c759; 
+            font-weight: 500; 
+            font-size: 36px; 
+            display: block; 
+            margin: 8px 0; 
+        }
+        .sub-stats { 
+            display: flex; 
+            justify-content: space-around; 
+            margin-top: 12px; 
+            font-size: 14px; 
+            color: #919094; 
+            background: #262429;
+            padding: 8px;
+            border-radius: 16px;
+        }
+
+        /* НАВИГАЦИОННОЕ МЕНЮ (Material Navigation Bar) */
+        .tab-bar {
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            height: 72px;
+            background: #1d1b20;
+            display: flex;
+            justify-content: space-around;
+            align-items: center;
+            z-index: 1000;
+            box-shadow: 0 -2px 10px rgba(0,0,0,0.2);
+        }
+        .tab-btn {
+            background: none;
+            border: none;
+            color: #cbc4cf;
+            font-size: 12px;
             cursor: pointer;
-            box-shadow: 0 6px 15px rgba(0,0,0,0.5);
-            margin: 0 auto 15px auto;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 4px;
+            width: 33%;
+            transition: color 0.2s ease;
+        }
+        /* Эффект "пилюли" вокруг иконки активной вкладки */
+        .tab-btn .icon-wrapper {
+            padding: 4px 20px;
+            border-radius: 16px;
+            transition: background-color 0.2s ease;
+        }
+        .tab-btn .icon { font-size: 20px; }
+        
+        .tab-btn.active { color: #d0bcff; font-weight: 500; } /* Светло-фиолетовый Material-акцент */
+        .tab-btn.active .icon-wrapper {
+            background-color: #4f378b; /* Фон активной пилюли */
+        }
+
+        /* СЕКЦИИ ОТДЕЛОВ */
+        .tab-content { display: none; }
+        .tab-content.active { display: block; }
+
+        /* ЦЕНТРАЛЬНАЯ КНОПКА (Material FAB-стиль) */
+        .click-btn {
+            width: 150px;
+            height: 150px;
+            border-radius: 28px; /* Квадратная со скругленными углами */
+            background: #adc6ff; /* Пастельный голубой */
+            color: #002e69;
+            font-size: 60px;
+            cursor: pointer;
+            box-shadow: 0 8px 16px rgba(0,0,0,0.3);
+            margin: 50px auto;
             display: flex;
             align-items: center;
             justify-content: center;
-            transition: transform 0.05s ease;
+            transition: transform 0.1s cubic-bezier(0, 0, 0.2, 1), background-color 0.2s;
+            border: none;
             outline: none;
         }
-        .click-btn:active { transform: scale(0.92); }
+        .click-btn:active { 
+            transform: scale(0.95); 
+            background: #85aaff;
+        }
 
-        /* ПЕРЕКЛЮЧАТЕЛИ КОЛИЧЕСТВА */
+        /* ПЕРЕКЛЮЧАТЕЛИ КРАТНОСТИ (Material Segmented Buttons) */
         .multiplier-container {
             display: flex;
             justify-content: center;
-            gap: 8px;
-            margin-bottom: 20px;
+            margin: 8px 0 24px 0;
+            background: #262429;
+            border-radius: 20px;
+            padding: 4px;
+            width: fit-content;
+            margin-left: auto;
+            margin-right: auto;
         }
         .mult-btn {
-            background: #3a3a3c;
-            color: white;
-            border: 2px solid #48484a;
-            padding: 6px 12px;
-            border-radius: 20px;
-            font-weight: bold;
+            background: none;
+            color: #cbc4cf;
+            border: none;
+            padding: 6px 16px;
+            border-radius: 16px;
+            font-weight: 500;
             cursor: pointer;
             font-size: 13px;
+            transition: all 0.2s;
         }
-        .mult-btn.active {
-            background: #0088cc;
-            border-color: #0088cc;
+        .mult-btn.active { 
+            background: #4f378b; 
+            color: #e6e1e5;
         }
 
-        /* ДЕРЕВЬЯ ПРОКАЧКИ */
-        .section-title {
-            text-align: left;
-            font-size: 18px;
-            color: #ffcc00;
-            margin: 20px 0 10px 10px;
-            border-left: 4px solid #ffcc00;
-            padding-left: 8px;
-        }
-        .tree-container {
-            display: flex;
-            flex-direction: column;
-            gap: 12px;
-            align-items: center;
-        }
+        /* КАРТОЧКИ УЛУЧШЕНИЙ (Material Elevated Cards) */
+        .tree-container { display: flex; flex-direction: column; gap: 12px; align-items: center; }
         .upgrade-node {
-            width: 90%;
-            max-width: 350px;
-            background: #3a3a3c;
-            border: 2px solid #48484a;
-            border-radius: 12px;
-            padding: 12px;
-            text-align: left;
+            width: 90%; max-width: 360px;
+            background: #211f26; 
+            border-radius: 16px;
+            padding: 16px; 
+            text-align: left; 
             position: relative;
+            box-sizing: border-box;
         }
-        .upgrade-node.unlocked { border-color: #0088cc; }
-        .upgrade-node.locked { background: #161617; opacity: 0.3; }
-        .upgrade-title { font-weight: bold; font-size: 15px; display: flex; justify-content: space-between; margin-bottom: 3px; }
-        .upgrade-desc { font-size: 12px; color: #aeaee3; margin-bottom: 8px; }
-        .lvl-badge { background: #0088cc; color: white; padding: 2px 6px; border-radius: 8px; font-size: 11px; }
+        .upgrade-node.locked { background: #141218; opacity: 0.3; }
+        .upgrade-title { font-weight: 500; font-size: 16px; display: flex; justify-content: space-between; align-items: center;}
+        .upgrade-desc { font-size: 13px; color: #919094; margin: 6px 0 14px 0; }
+        .lvl-badge { background: #332d41; color: #d0bcff; padding: 4px 10px; border-radius: 8px; font-size: 12px; font-weight: 500; }
         
+        /* КНОПКА ПОКУПКИ (Material Filled Button) */
         .btn {
-            background: #34c759;
-            color: white;
+            background: #34c759; 
+            color: #ffffff; 
             border: none;
-            padding: 8px 10px;
-            border-radius: 8px;
-            font-weight: bold;
-            cursor: pointer;
-            width: 100%;
-            font-size: 13px;
+            padding: 10px 16px; 
+            border-radius: 100px; /* Полностью круглые кнопки в M3 */
+            font-weight: 500;
+            cursor: pointer; 
+            width: 100%; 
+            font-size: 14px;
+            letter-spacing: 0.1px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.2);
+            transition: background-color 0.2s;
         }
-        .btn:disabled { background: #48484a; color: #8e8e93; cursor: not-allowed; }
-        .locked-badge {
-            position: absolute;
-            right: 12px;
-            top: 12px;
-            color: #ff3b30;
-            font-size: 11px;
-            font-weight: bold;
-        }
+        .btn.passive-btn { background: #b0a7ba; color: #312b3b; }
+        .btn:disabled { background: #313033; color: #605d62; cursor: not-allowed; box-shadow: none; }
+        .locked-badge { position: absolute; right: 16px; top: 16px; color: #ffb4ab; font-size: 12px; font-weight: 500; }
     </style>
 </head>
 <body>
 
-    <h1>Гаражная Империя v3</h1>
-
     <div class="stats-container">
-        <div>Баланс</div>
+        <span class="balance-label">Баланс СТО</span>
         <span id="balance" class="money">0 ₽</span>
-        <div style="display: flex; justify-content: space-around; margin-top: 10px;">
-            <div class="stat">Клик: +<span id="income" style="color: white; font-weight: bold;">1</span> ₽</div>
-            <div class="stat">Пассив: +<span id="passiveIncome" style="color: #ffcc00; font-weight: bold;">0</span> ₽/с</div>
+        <div class="sub-stats">
+            <div>Клик: <span id="income" style="color: #adc6ff; font-weight: 500;">+1 ₽</span></div>
+            <div>Пассив: <span id="passiveIncome" style="color: #d0bcff; font-weight: 500;">+0 ₽/с</span></div>
         </div>
     </div>
 
-    <!-- КЛИКЕР -->
-    <div class="click-btn" onclick="makeClick()">⚙️</div>
-
-    <!-- ПЕРЕКЛЮЧАТЕЛИ КРАТНОСТИ -->
-    <div class="multiplier-container">
+    <div class="multiplier-container" id="multContainer" style="display: none;">
         <button class="mult-btn active" id="mult_1" onclick="setMultiplier(1)">x1</button>
         <button class="mult-btn" id="mult_5" onclick="setMultiplier(5)">x5</button>
         <button class="mult-btn" id="mult_10" onclick="setMultiplier(10)">x10</button>
         <button class="mult-btn" id="mult_20" onclick="setMultiplier(20)">x20</button>
     </div>
 
-    <!-- ВЕТКА А: КЛИКИ -->
-    <div class="section-title">Ветка ручного труда (Сила тапа)</div>
-    <div class="tree-container">
-        <div class="upgrade-node unlocked" id="node_tools">
-            <div class="upgrade-title"><span>🛠️ Набор ключей</span><span class="lvl-badge" id="lvl_tools">Lvl 0</span></div>
-            <div class="upgrade-desc">Дает +1 ₽ к тапу за уровень.</div>
-            <button class="btn" id="btn_tools" onclick="buyUpgrade('tools')">Купить</button>
-        </div>
+    <div id="tab_main" class="tab-content active">
+        <h1>Главный бокс</h1>
+        <p>Нажимай на блок для обслуживания клиентских авто</p>
+        <button class="click-btn" onclick="makeClick()">⚙️</button>
+    </div>
 
-        <div class="upgrade-node locked" id="node_pneumo">
-            <span class="locked-badge" id="lock_pneumo">🔒 Требуется: Ключи (5 ур.)</span>
-            <div class="upgrade-title"><span>💨 Пневмогайковерт</span><span class="lvl-badge" id="lvl_pneumo">Lvl 0</span></div>
-            <div class="upgrade-desc">Дает +5 ₽ к тапу за уровень.</div>
-            <button class="btn" id="btn_pneumo" onclick="buyUpgrade('pneumo')" disabled>Купить</button>
+    <div id="tab_upgrades" class="tab-content">
+        <h1>Инструменты</h1>
+        <p>Модернизация оборудования ручного труда</p>
+        <div class="tree-container">
+            <div class="upgrade-node" id="node_tools">
+                <div class="upgrade-title"><span>🛠️ Набор ключей</span><span class="lvl-badge" id="lvl_tools">Lvl 0</span></div>
+                <div class="upgrade-desc">Повышает силу тапа на +1 ₽ за уровень.</div>
+                <button class="btn" id="btn_tools" onclick="buyUpgrade('tools')">Купить</button>
+            </div>
+
+            <div class="upgrade-node locked" id="node_pneumo">
+                <span class="locked-badge" id="lock_pneumo">🔒 Нужен Lvl 5 Ключей</span>
+                <div class="upgrade-title"><span>💨 Пневмогайковерт</span><span class="lvl-badge" id="lvl_pneumo">Lvl 0</span></div>
+                <div class="upgrade-desc">Повышает силу тапа на +5 ₽ за уровень.</div>
+                <button class="btn" id="btn_pneumo" onclick="buyUpgrade('pneumo')" disabled>Купить</button>
+            </div>
         </div>
     </div>
 
-    <!-- ВЕТКА Б: ПАССИВНЫЙ ДОХОД -->
-    <div class="section-title">Ветка менеджмента (Авто-доход)</div>
-    <div class="tree-container" style="margin-bottom: 30px;">
-        <div class="upgrade-node unlocked" id="node_trainee">
-            <div class="upgrade-title"><span>👨‍🎓 Ленивый стажер</span><span class="lvl-badge" id="lvl_trainee">Lvl 0</span></div>
-            <div class="upgrade-desc font-size: 12px;">Работает сам. Приносит +2 ₽/сек за уровень.</div>
-            <button class="btn" id="btn_trainee" style="background: #0088cc;" onclick="buyUpgrade('trainee')">Купить</button>
-        </div>
+    <div id="tab_office" class="tab-content">
+        <h1>Управление кадрами</h1>
+        <p>Найм персонала для автоматического дохода</p>
+        <div class="tree-container">
+            <div class="upgrade-node" id="node_trainee">
+                <div class="upgrade-title"><span>👨‍🎓 Авто-стажер</span><span class="lvl-badge" id="lvl_trainee">Lvl 0</span></div>
+                <div class="upgrade-desc">Генерирует +2 ₽/сек пассивного дохода за уровень.</div>
+                <button class="btn passive-btn" id="btn_trainee" onclick="buyUpgrade('trainee')">Купить</button>
+            </div>
 
-        <div class="upgrade-node locked" id="node_master">
-            <span class="locked-badge" id="lock_master">🔒 Требуется: Стажер (5 ур.)</span>
-            <div class="upgrade-title"><span>👨‍🔧 Опытный механик</span><span class="lvl-badge" id="lvl_master">Lvl 0</span></div>
-            <div class="upgrade-desc">Знает свое дело. Приносит +15 ₽/сек за уровень.</div>
-            <button class="btn" id="btn_master" style="background: #0088cc;" onclick="buyUpgrade('master')" disabled>Купить</button>
+            <div class="upgrade-node locked" id="node_master">
+                <span class="locked-badge" id="lock_master">🔒 Нужен Lvl 5 Стажера</span>
+                <div class="upgrade-title"><span>👨‍🔧 Профи-механик</span><span class="lvl-badge" id="lvl_master">Lvl 0</span></div>
+                <div class="upgrade-desc">Генерирует +15 ₽/сек пассивного дохода за уровень.</div>
+                <button class="btn passive-btn" id="btn_master" onclick="buyUpgrade('master')" disabled>Купить</button>
+            </div>
         </div>
+    </div>
+
+    <div class="tab-bar">
+        <button class="tab-btn active" id="btn_tab_main" onclick="switchTab('main')">
+            <div class="icon-wrapper"><span class="icon">⚙️</span></div>
+            <span>Бокс</span>
+        </button>
+        <button class="tab-btn" id="btn_tab_upgrades" onclick="switchTab('upgrades')">
+            <div class="icon-wrapper"><span class="icon">🛠️</span></div>
+            <span>Цех</span>
+        </button>
+        <button class="tab-btn" id="btn_tab_office" onclick="switchTab('office')">
+            <div class="icon-wrapper"><span class="icon">🏢</span></div>
+            <span>Офис</span>
+        </button>
     </div>
 
     <script>
@@ -186,69 +270,59 @@
         tg.expand();
 
         let buyMultiplier = 1;
-
-        // Архитектура состояния (с сохранением времени выхода)
         let gameState = {
-            balance: 0,
-            clickIncome: 1,
-            passiveIncome: 0,
-            lastSaveTime: Date.now(),
-            upgrades: {
-                tools: 0,
-                pneumo: 0,
-                trainee: 0,
-                master: 0
-            }
+            balance: 0, clickIncome: 1, passiveIncome: 0, lastSaveTime: Date.now(),
+            upgrades: { tools: 0, pneumo: 0, trainee: 0, master: 0 }
         };
 
-        // Конфигурация для двух разных типов веток
         const upgradeConfig = {
-            tools: { baseCost: 50, factor: 1.15, power: 1, type: 'click' },
-            pneumo: { baseCost: 300, factor: 1.18, power: 5, type: 'click' },
-            trainee: { baseCost: 100, factor: 1.16, power: 2, type: 'passive' },
-            master: { baseCost: 800, factor: 1.20, power: 15, type: 'passive' }
+            tools: { baseCost: 50, factor: 1.15, power: 1 },
+            pneumo: { baseCost: 300, factor: 1.18, power: 5 },
+            trainee: { baseCost: 100, factor: 1.16, power: 2 },
+            master: { baseCost: 800, factor: 1.20, power: 15 }
         };
 
-        // ЗАГРУЗКА И СЧЕТ ОФФЛАЙН-ДОХОДА
-        if (localStorage.getItem('garage_empire_v3')) {
+        function switchTab(tabId) {
+            document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active'));
+            document.querySelectorAll('.tab-btn').forEach(el => el.classList.remove('active'));
+            
+            document.getElementById('tab_' + tabId).classList.add('active');
+            document.getElementById('btn_tab_' + tabId).classList.add('active');
+
+            const multContainer = document.getElementById('multContainer');
+            multContainer.style.display = (tabId === 'main') ? 'none' : 'flex';
+            
+            if (tg.HapticFeedback) tg.HapticFeedback.impactOccurred('light');
+            updateUI();
+        }
+
+        if (localStorage.getItem('garage_material_v5')) {
             try {
-                gameState = JSON.parse(localStorage.getItem('garage_empire_v3'));
-                
-                // Считаем сколько времени прошло с последнего сейва
+                gameState = JSON.parse(localStorage.getItem('garage_material_v5'));
                 const now = Date.now();
                 const secondsOffline = Math.floor((now - gameState.lastSaveTime) / 1000);
                 
                 if (secondsOffline > 3 && gameState.passiveIncome > 0) {
                     const offlineEarnings = secondsOffline * gameState.passiveIncome;
                     gameState.balance += offlineEarnings;
-                    
-                    // Выводим красивое уведомление через нативный ТГ алерт
                     setTimeout(() => {
-                        tg.showAlert(`💤 Пока тебя не было ${secondsOffline} сек., твой автосервис заработал пассивно: +${offlineEarnings} ₽!`);
+                        tg.showAlert(`💤 Пассивный доход за время отсутствия (${secondsOffline} сек): +${offlineEarnings} ₽!`);
                     }, 500);
                 }
             } catch (e) { console.log("Ошибка загрузки"); }
         }
 
-        // Запуск таймера пассивного дохода (работает каждую секунду)
         setInterval(function() {
             if (gameState.passiveIncome > 0) {
                 gameState.balance += gameState.passiveIncome;
                 document.getElementById('balance').innerText = Math.floor(gameState.balance) + " ₽";
-                // Каждые 5 секунд тихо пишем бэкап времени в localStorage
                 if (Math.random() < 0.2) { saveToLocal(); }
             }
         }, 1000);
 
-        // КЛИК С ВИБРАЦИЕЙ
         function makeClick() {
             gameState.balance += gameState.clickIncome;
-            
-            // ТАКТИЛЬНЫЙ ОТКЛИК (Вибрация корпуса в ТГ)
-            if (tg.HapticFeedback) {
-                tg.HapticFeedback.impactOccurred('light');
-            }
-            
+            if (tg.HapticFeedback) tg.HapticFeedback.impactOccurred('light');
             updateUI();
         }
 
@@ -272,29 +346,26 @@
 
         function updateUI() {
             document.getElementById('balance').innerText = Math.floor(gameState.balance) + " ₽";
-            document.getElementById('income').innerText = gameState.clickIncome;
-            document.getElementById('passiveIncome').innerText = gameState.passiveIncome;
+            document.getElementById('income').innerText = gameState.clickIncome + " ₽";
+            document.getElementById('passiveIncome').innerText = gameState.passiveIncome + " ₽/с";
 
-            // Обновляем бейджи
             for (let key in gameState.upgrades) {
                 const lvlEl = document.getElementById('lvl_' + key);
                 if (lvlEl) lvlEl.innerText = "Lvl " + gameState.upgrades[key];
             }
 
-            // Условия деревьев (открытие за 5-й уровень)
             if (gameState.upgrades.tools >= 5) unlockNode('pneumo');
             if (gameState.upgrades.trainee >= 5) unlockNode('master');
 
-            // Обновление ценников
             for (let key in gameState.upgrades) {
                 const cost = getCostForLevels(key, gameState.upgrades[key], buyMultiplier);
                 const btn = document.getElementById('btn_' + key);
                 if (btn && !document.getElementById('node_' + key).classList.contains('locked')) {
-                    btn.innerText = `Купить x${buyMultiplier} [${cost} ₽]`;
+                    btn.innerText = `Купить x${buyMultiplier} • ${cost} ₽`;
                 }
             }
 
-            tg.MainButton.setText("Синхронизировать с Ботом");
+            tg.MainButton.setText("Синхронизировать данные");
             tg.MainButton.show();
         }
 
@@ -302,7 +373,6 @@
             const node = document.getElementById('node_' + id);
             if (node && node.classList.contains('locked')) {
                 node.classList.remove('locked');
-                node.classList.add('unlocked');
                 document.getElementById('lock_' + id).style.display = 'none';
                 document.getElementById('btn_' + id).disabled = false;
             }
@@ -316,12 +386,8 @@
                 gameState.balance -= cost;
                 gameState.upgrades[type] += buyMultiplier;
 
-                // [ТАКТИЛЬНЫЙ ОТКЛИК] Более мощная вибрация при покупке апгрейда
-                if (tg.HapticFeedback) {
-                    tg.HapticFeedback.notificationOccurred('success');
-                }
+                if (tg.HapticFeedback) tg.HapticFeedback.notificationOccurred('success');
 
-                // Пересчитываем силу тапа и пассивку на основе уровней
                 gameState.clickIncome = 1 + 
                     (gameState.upgrades.tools * upgradeConfig.tools.power) +
                     (gameState.upgrades.pneumo * upgradeConfig.pneumo.power);
@@ -333,13 +399,13 @@
                 saveToLocal();
                 updateUI();
             } else {
-                alert("Не хватает рублей для массовой покупки!");
+                alert("Недостаточно средств");
             }
         }
 
         function saveToLocal() {
-            gameState.lastSaveTime = Date.now(); // Запоминаем точное время сохранения
-            localStorage.setItem('garage_empire_v3', JSON.stringify(gameState));
+            gameState.lastSaveTime = Date.now();
+            localStorage.setItem('garage_material_v5', JSON.stringify(gameState));
         }
 
         tg.onEvent('mainButtonClicked', function(){
