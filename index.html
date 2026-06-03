@@ -88,7 +88,7 @@
             <div>Пассив: <span id="passiveIncome" style="color: #d0bcff; font-weight: 500;">+0 ₽/с</span></div>
         </div>
         <div class="prestige-info">
-            <span>⚛️ Осколки: <span id="shardDisplay" class="shard-color">0</span></span>
+            <span>⚛️ Осколков: <span id="shardDisplay" class="shard-color">0</span></span>
             <span style="color: #919094; margin-left: 8px;">(Буст: <span id="boostDisplay" style="color:#34c759; font-weight:500;">+0%</span>)</span>
         </div>
     </div>
@@ -493,11 +493,22 @@
         }
 
         // КНОПКА СОХРАНЕНИЯ В ОБЛАКО БОТА
-        tg.onEvent('mainButtonClicked', function(){
-            gameState.lastSaveTime = Date.now();
-            tg.sendData(JSON.stringify(gameState));
-            tg.close();
-        });
+tg.onEvent('mainButtonClicked', function(){
+    // Обязательно сохраняем время перед отправкой
+    gameState.lastSaveTime = Date.now();
+    
+    // Превращаем объект в чистую JSON-строку
+    const dataToSend = JSON.stringify(gameState);
+    
+    // Отправляем боту
+    tg.sendData(dataToSend);
+    
+    // Бот сам должен вызвать tg.close(), либо мы делаем это здесь, 
+    // но лучше ждать подтверждения. Пока просто закрываем.
+    tg.close();
+});
+
+
 
         // Запуск
         initGameData();
