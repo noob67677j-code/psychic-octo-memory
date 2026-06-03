@@ -31,7 +31,6 @@
         .money { color: #34c759; font-weight: 500; font-size: 36px; display: block; margin: 8px 0; min-height: 44px; }
         .sub-stats { display: flex; justify-content: space-around; margin-top: 12px; font-size: 14px; color: #919094; background: #262429; padding: 8px; border-radius: 16px; }
 
-        /* Панель престижа */
         .prestige-info { font-size: 13px; color: #e1e2ec; background: #2b2930; padding: 10px; border-radius: 16px; margin-top: 10px; display: flex; justify-content: center; align-items: center; gap: 8px; }
         .shard-color { color: #7da4ff; font-weight: bold; }
 
@@ -99,7 +98,6 @@
         .btn.not-available { background: #313033; color: #919094; }
         .btn:disabled { background: #1d1b20; color: #48484a; cursor: not-allowed; box-shadow: none; }
         
-        /* Особая кнопка для престижа */
         .btn.prestige-btn { background: #4f378b; color: #ffffff; margin-top: 16px; font-size: 15px; padding: 14px; }
         .btn.prestige-btn:disabled { background: #262429; color: #48484a; }
 
@@ -111,7 +109,6 @@
         .leader-name { flex-grow: 1; text-align: left; font-weight: 500; text-overflow: ellipsis; overflow: hidden; white-space: nowrap; padding-right: 8px; }
         .leader-score { font-weight: 500; color: #34c759; }
 
-        /* Оффлайн модалка */
         .modal-backdrop {
             position: fixed; top: 0; left: 0; right: 0; bottom: 0;
             background: rgba(0, 0, 0, 0.6); backdrop-filter: blur(4px);
@@ -201,7 +198,6 @@
     <div id="tab_prestige" class="tab-content">
         <h1>Квантовый Перезапуск</h1>
         <p>Сбрось текущий прогресс, чтобы высвободить чистую энергию Осколков!</p>
-        
         <div class="tree-container" style="margin-top: 20px;">
             <div class="upgrade-node" style="text-align: center; width: 95%;">
                 <div style="font-size: 15px; margin-bottom: 12px; color: #cbc4cf;">
@@ -210,12 +206,10 @@
                 <div style="font-size: 14px; color: #919094; margin-bottom: 16px;">
                     Каждый осколок дает постоянный буст <b style="color: #7da4ff;">+10%</b> ко всей добыче. Все модификаторы и баланс будут сброшены.
                 </div>
-                
                 <div style="background: #1d1b20; padding: 16px; border-radius: 16px; margin-bottom: 16px;">
                     <span style="font-size: 13px; color: #919094; display:block;">Ты получишь при сбросе:</span>
                     <span id="prestigeGainDisplay" style="font-size: 26px; color: #7da4ff; font-weight: bold;">0 ⚛️</span>
                 </div>
-
                 <button class="btn prestige-btn" id="prestigeCallBtn" onclick="triggerPrestige()" disabled>
                     Произвести коллапс вселенной
                 </button>
@@ -265,7 +259,10 @@
 
         let buyMultiplier = 1;
         
-        // Добавлено поле shards в стейт игры
+        // 1. ИСПРАВЛЕНИЕ БАГА: Привязываем ключ сохранения строго к ID текущего Telegram-аккаунта
+        const userId = tg.initDataUnsafe?.user?.id ? tg.initDataUnsafe.user.id.toString() : "local_user";
+        const SAVE_KEY = `quantum_clicker_save_${userId}`;
+
         let gameState = {
             balance: 0, clickIncome: 1, passiveIncome: 0, lastSaveTime: Date.now(), shards: 0,
             upgrades: { click_1: 0, click_2: 0, passive_1: 0, passive_2: 0 }
@@ -351,11 +348,10 @@
             if (tg.HapticFeedback) tg.HapticFeedback.impactOccurred('light');
         }
 
-        // Обновлен ключ сохранения под новую версию престижа
-        if (localStorage.getItem('pure_clicker_m3_prestige')) {
+        // Загрузка сейва строго по уникальному для аккаунта ключу SAVE_KEY
+        if (localStorage.getItem(SAVE_KEY)) {
             try {
-                gameState = JSON.parse(localStorage.getItem('pure_clicker_m3_prestige'));
-                // Если зашли со старого сейва без поля shards, инициализируем его
+                gameState = JSON.parse(localStorage.getItem(SAVE_KEY));
                 if (gameState.shards === undefined) gameState.shards = 0;
                 
                 const now = Date.now();
@@ -381,7 +377,6 @@
             }
             document.getElementById('balance').innerText = Math.floor(gameState.balance).toLocaleString('ru-RU') + " ₽";
             
-            // Динамический расчет осколков во вкладке престижа
             calculatePrestigeGain();
             updateSmartButtons();
         }, 1000 / updateFPS);
@@ -442,12 +437,9 @@
             return totalCost;
         }
 
-        // РАСЧЕТ И ИНТЕГРАЦИЯ БУСТА ОТ ПРЕСТИЖА
         function updateUI() {
-            // Множитель буста от осколков: 1 + (кол-во осколков * 10%)
             const multiplier = 1 + (gameState.shards * 0.10);
 
-            // Итоговый доход с учетом престиж-буста
             const baseClick = 1 + (gameState.upgrades.click_1 * upgradeConfig.click_1.power) + (gameState.upgrades.click_2 * upgradeConfig.click_2.power);
             gameState.clickIncome = baseClick * multiplier;
 
@@ -457,7 +449,6 @@
             document.getElementById('income').innerText = "+" + Math.floor(gameState.clickIncome) + " ₽";
             document.getElementById('passiveIncome').innerText = "+" + Math.floor(gameState.passiveIncome) + " ₽/с";
             
-            // Обновляем плашки осколков на верхнем мониторе
             document.getElementById('shardDisplay').innerText = gameState.shards;
             document.getElementById('boostDisplay').innerText = "+" + (gameState.shards * 10) + "%";
 
@@ -466,7 +457,6 @@
                 if (lvlEl) lvlEl.innerText = "Lvl " + gameState.upgrades[key];
             }
 
-            // Условия открытия скрытых веток закупа
             if (gameState.upgrades.click_1 >= 5) unlockNode('click_2');
             else lockNode('click_2');
 
@@ -479,13 +469,11 @@
             tg.MainButton.show();
         }
 
-        // Логика расчета возможного получения Осколков
         function calculatePrestigeGain() {
             const prestigeBtn = document.getElementById('prestigeCallBtn');
             const gainDisplay = document.getElementById('prestigeGainDisplay');
             
             if (gameState.balance >= 1000000) {
-                // Математическая формула: корень из (баланс / миллион)
                 let shardsToGain = Math.floor(Math.sqrt(gameState.balance / 1000000));
                 if (shardsToGain < 1) shardsToGain = 1;
                 
@@ -497,20 +485,16 @@
             }
         }
 
-        // АКТИВАЦИЯ ПРЕСТИЖА (МЯГКИЙ СБРОС ВСЕЛЕННОЙ)
         function triggerPrestige() {
             if (gameState.balance < 1000000) return;
 
             let shardsToGain = Math.floor(Math.sqrt(gameState.balance / 1000000));
             if (shardsToGain < 1) shardsToGain = 1;
 
-            // Спрашиваем подтверждение через Telegram native диалог
             tg.showConfirm(`Вы уверены, что хотите свернуть квантовое ядро?\n\nВы потеряете все рубли и уровни улучшений, но получите постоянный бонус в размере +${shardsToGain * 10}% к добыче!`, function(confirmed) {
                 if (confirmed) {
-                    // Начисляем постоянные осколки
                     gameState.shards += shardsToGain;
                     
-                    // Обнуляем текущие рубли и улучшения
                     gameState.balance = 0;
                     gameState.upgrades.click_1 = 0;
                     gameState.upgrades.click_2 = 0;
@@ -519,7 +503,6 @@
 
                     if (tg.HapticFeedback) tg.HapticFeedback.notificationOccurred('warning');
                     
-                    // Возвращаем игрока на вкладку ядра генерации и пересчитываем бусты
                     saveToLocal();
                     switchTab('main');
                     tg.showAlert(`💥 Коллапс завершен! Новая вселенная создана. Вы получили: ${shardsToGain} осколков.`);
@@ -580,7 +563,8 @@
 
         function saveToLocal() {
             gameState.lastSaveTime = Date.now();
-            localStorage.setItem('pure_clicker_m3_prestige', JSON.stringify(gameState));
+            // Сохраняем тоже по уникальному ключу аккаунта
+            localStorage.setItem(SAVE_KEY, JSON.stringify(gameState));
         }
 
         tg.onEvent('mainButtonClicked', function(){
