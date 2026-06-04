@@ -187,395 +187,350 @@
     </div>
 
 <script>
-        const tg = window.Telegram.WebApp;
-        tg.expand();
+// Инициализация Telegram WebApp
+const tg = window.Telegram.WebApp;
+tg.expand();
 
-        // ==========================================
-        // НАСТРОЙКА: ВСТАВЬ СВОЮ ССЫЛКУ ИЗ GOOGLE APPS SCRIPT
-        // ==========================================
-        const DATABASE_URL = "https://script.google.com/macros/s/AKfycbz8HWp9x2CGIdIqz64xs_5DIAnQFnXq9Kd0XowPkqgjU7osTZ-5rYgDLZOlr2BTiLXK/exec"; 
+// ТВОЯ АКТУАЛЬНАЯ ССЫЛКА НА GOOGLE WEB APP
+const DATABASE_URL = "https://script.google.com/macros/s/AKfycbwGLV--Q71Z1m5WgWs0TKgN51ev4lyTbriO7X_NWh16D1BnwdUB6WqTJ_XFH4xZHU/exec";
 
-        let buyMultiplier = 1;
-        let isOverdoseActive = false;
-        let overdoseTimeLeft = 0;
-        let currentActiveTab = 'main';
-        let leaderData = [];
+// Базовые конфиги улучшений
+const upgradeConfig = {
+    click_1: { name: "Деревянный кликер", power: 1, cost: 10 },
+    click_2: { name: "Железный курсор", power: 5, cost: 100 },
+    passive_1: { name: "Маленький майнер", power: 1, cost: 50 },
+    passive_2: { name: "Квантовая ферма", power: 10, cost: 500 }
+};
 
-        const AudioCtx = window.AudioContext || window.webkitAudioContext;
-        let audioCtx = null;
+// Состояние игры по умолчанию
+let gameState = {
+    balance: 0,
+    shards: 0,
+    lastSaveTime: Date.now(),
+    upgrades: {
+        click_1: 0,
+        click_2: 0,
+        passive_1: 0,
+        passive_2: 0
+    }
+};
 
-        function playSound(type) {
-            try {
-                if (!audioCtx) audioCtx = new AudioCtx();
-                if (audioCtx.state === 'suspended') audioCtx.resume();
-                const osc = audioCtx.createOscillator();
-                const gain = audioCtx.createGain();
-                osc.connect(gain); gain.connect(audioCtx.destination);
-                const now = audioCtx.currentTime;
-                if (type === 'click') {
-                    osc.type = 'sine'; osc.frequency.setValueAtTime(isOverdoseActive ? 800 : 400, now);
-                    osc.frequency.exponentialRampToValueAtTime(80, now + 0.08);
-                    gain.gain.setValueAtTime(0.15, now); gain.gain.linearRampToValueAtTime(0, now + 0.08);
-                    osc.start(now); osc.stop(now + 0.08);
-                } else if (type === 'upgrade') {
-                    osc.type = 'triangle'; osc.frequency.setValueAtTime(300, now);
-                    osc.frequency.setValueAtTime(500, now + 0.08);
-                    gain.gain.setValueAtTime(0.2, now); gain.gain.linearRampToValueAtTime(0, now + 0.2);
-                    osc.start(now); osc.stop(now + 0.2);
-                } else if (type === 'overdose_start') {
-                    osc.type = 'sawtooth'; osc.frequency.setValueAtTime(100, now);
-                    osc.frequency.exponentialRampToValueAtTime(900, now + 0.5);
-                    gain.gain.setValueAtTime(0.25, now); gain.gain.linearRampToValueAtTime(0, now + 0.5);
-                    osc.start(now); osc.stop(now + 0.5);
-                }
-            } catch (e) {}
-        }
+let leaderData = [];
+let currentActiveTab = 'game';
 
-        let gameState = {
-            balance: 0, clickIncome: 1, passiveIncome: 0, lastSaveTime: Date.now(), shards: 0,
-            upgrades: { click_1: 0, click_2: 0, passive_1: 0, passive_2: 0 }
-        };
+// Функция расчёта динамической стоимости апгрейда
+function getUpgradeCost(type, level) {
+    return Math.floor(upgradeConfig[type].cost * Math.pow(1.5, level));
+}
 
-        const upgradeConfig = {
-            click_1: { baseCost: 50, factor: 1.15, power: 1 },
-            click_2: { baseCost: 300, factor: 1.18, power: 5 },
-            passive_1: { baseCost: 100, factor: 1.16, power: 2 },
-            passive_2: { baseCost: 800, factor: 1.20, power: 15 }
-        };
+// 1. ИНИЦИАЛИЗАЦИЯ ИГРЫ ПРИ СТАРТЕ (БЕЗОПАСНАЯ)
+function initGameData() {
+    const userId = tg.initDataUnsafe?.user?.id || 12345;
+    
+    // Сразу ставим временную заглушку загрузки топа
+    const container = document.getElementById('leaderboardContainer');
+    if (container) container.innerHTML = `<div style="color: #919094; margin-top: 20px;">Загрузка данных...</div>`;
 
-        // 1. ЗАГРУЗКА ТОПОВ
-        function loadLiveTopData() {
-            const userId = tg.initDataUnsafe?.user?.id || 12345;
-            
-            fetch(DATABASE_URL.trim(), {
-                method: "POST",
-                headers: { "Content-Type": "text/plain" },
-                body: JSON.stringify({ action: "load", user_id: userId })
-            })
-            .then(res => {
-                if (!res.ok) throw new Error('Network error');
-                return res.text(); // Принимаем как сырой текст, обходя CORS
-            })
-            .then(text => {
-                const data = JSON.parse(text);
-                if (data.status === "success" && data.top) {
-                    leaderData = data.top;
-                    localStorage.setItem('quantum_last_top', JSON.stringify(data.top));
-                    if (currentActiveTab === 'leaderboard') renderLeaderboard();
-                }
-            })
-            .catch(e => {
-                console.error("Ошибка загрузки топа:", e);
-                // При ошибке рендерим локальный кэш
-                const cachedTop = localStorage.getItem('quantum_last_top');
-                if (cachedTop) leaderData = JSON.parse(cachedTop);
-                if (currentActiveTab === 'leaderboard') renderLeaderboard();
-            });
-        }
+    // Загружаем локальные бэкапы, чтобы игра запустилась СРАЗУ и кнопки работали
+    const localSave = localStorage.getItem(`quantum_save_${userId}`);
+    if (localSave) {
+        try { gameState = JSON.parse(localSave); } catch(e) { console.error(e); }
+    }
+    const cachedTop = localStorage.getItem('quantum_last_top');
+    if (cachedTop) {
+        try { leaderData = JSON.parse(cachedTop); } catch(e) { console.error(e); }
+    }
+    
+    updateUI();
+    if (currentActiveTab === 'upgrades') renderUpgrades();
 
-        // 2. ИНИЦИАЛИЗАЦИЯ ИГРЫ
-        function initGameData() {
-            const userId = tg.initDataUnsafe?.user?.id || 12345;
-            
-            document.getElementById('leaderboardContainer').innerHTML = `<div style="color: #919094; margin-top: 20px;">Загрузка данных...</div>`;
-
-            fetch(DATABASE_URL.trim(), {
-                method: "POST",
-                headers: { "Content-Type": "text/plain" },
-                body: JSON.stringify({ action: "load", user_id: userId })
-            })
-            .then(res => {
-                if (!res.ok) throw new Error('Init network error');
-                return res.text();
-            })
-            .then(text => {
-                const data = JSON.parse(text);
-                if (data.status === "success") {
-                    if (data.save) {
-                        gameState = (typeof data.save === 'string') ? JSON.parse(data.save) : data.save;
-                    } else {
-                        const localSave = localStorage.getItem(`quantum_save_${userId}`);
-                        if(localSave) gameState = JSON.parse(localSave);
-                    }
-                    if (data.top) {
-                        leaderData = data.top;
-                        localStorage.setItem('quantum_last_top', JSON.stringify(data.top));
-                    }
-                }
-                updateUI();
-                if (currentActiveTab === 'leaderboard') renderLeaderboard();
-            })
-            .catch(err => {
-                console.log("Оффлайн старт, берем бэкапы:", err);
-                const localSave = localStorage.getItem(`quantum_save_${userId}`);
-                if(localSave) gameState = JSON.parse(localSave);
-                
-                const cachedTop = localStorage.getItem('quantum_last_top');
-                if (cachedTop) leaderData = JSON.parse(cachedTop);
-                
-                updateUI();
-                if (currentActiveTab === 'leaderboard') renderLeaderboard();
-            });
-        }
-
-        // 3. СОХРАНЕНИЕ ДАННЫХ
-        function saveGameData(isManual = false) {
-            const userId = tg.initDataUnsafe?.user?.id || 12345;
-            const username = tg.initDataUnsafe?.user?.first_name || "Игрок";
-            
-            gameState.lastSaveTime = Date.now();
-            localStorage.setItem(`quantum_save_${userId}`, JSON.stringify(gameState));
-            
-            fetch(DATABASE_URL.trim(), {
-                method: "POST",
-                headers: { "Content-Type": "text/plain" },
-                body: JSON.stringify({
-                    action: "save",
-                    user_id: userId,
-                    username: username,
-                    save: gameState
-                })
-            })
-            .then(res => res.text())
-            .then(text => {
-                const data = JSON.parse(text);
-                if(data.status === "success" && isManual) alert("Игра успешно сохранена в облако!");
-            })
-            .catch(e => console.log("Ошибка фонового сохранения:", e));
-        function switchTab(tabId) {
-            currentActiveTab = tabId;
-            document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active'));
-            document.querySelectorAll('.tab-btn').forEach(el => el.classList.remove('active'));
-            document.getElementById('tab_' + tabId).classList.add('active');
-            document.getElementById('btn_tab_' + tabId).classList.add('active');
-            
-            const multContainer = document.getElementById('multContainer');
-            multContainer.style.display = (tabId === 'upgrades' || tabId === 'office') ? 'flex' : 'none';
-            
-            // ВОТ ЭТОТ БЛОК:
-            if (tabId === 'leaderboard') {
-                renderLeaderboard(); // Сначала рисуем то, что есть (или надпись загрузки)
-                loadLiveTopData();   // Шлем запрос в Google, который обновит массив и перерисует топ
+    // Отправляем фоновый запрос в Google без блокировки интерфейса
+    fetch(DATABASE_URL.trim(), {
+        method: "POST",
+        headers: { "Content-Type": "text/plain" },
+        body: JSON.stringify({ action: "load", user_id: userId })
+    })
+    .then(res => {
+        if (!res.ok) throw new Error('Сеть упала');
+        return res.text();
+    })
+    .then(text => {
+        if (!text.trim().startsWith('{')) return;
+        const data = JSON.parse(text);
+        if (data.status === "success") {
+            if (data.save) {
+                gameState = (typeof data.save === 'string') ? JSON.parse(data.save) : data.save;
+            }
+            if (data.top) {
+                leaderData = data.top;
+                localStorage.setItem('quantum_last_top', JSON.stringify(data.top));
             }
             
-            if (tg.HapticFeedback) tg.HapticFeedback.impactOccurred('light');
-            updateUI();
-        }
-
-        function renderLeaderboard() {
-            const container = document.getElementById('leaderboardContainer');
-            container.innerHTML = "";
-            if(!leaderData || leaderData.length === 0) {
-                container.innerHTML = `<div style="color: #919094; margin-top: 20px;">Загрузка таблицы лидеров...</div>`;
-                return;
-            }
-            leaderData.forEach((player, index) => {
-                const item = document.createElement('div');
-                item.className = 'leader-item';
-                item.innerHTML = `
-                    <div class="leader-rank">#${index + 1}</div>
-                    <div class="leader-name">${player.name}</div>
-                    <div class="leader-score">${Math.floor(player.balance).toLocaleString('ru-RU')} ₽</div>
-                `;
-                container.appendChild(item);
-            });
-        }
-
-        function showOfflineModal(seconds, reward) {
-            document.getElementById('offlineTimeText').innerText = `Тебя не было: ${Math.floor(seconds/60)} мин`;
-            document.getElementById('offlineRewardText').innerText = `+${Math.floor(reward).toLocaleString('ru-RU')} ₽`;
-            document.getElementById('offlineModal').classList.add('open');
-        }
-
-        function closeOfflineModal() { document.getElementById('offlineModal').classList.remove('open'); }
-
-        const updateFPS = 20;
-        setInterval(function() {
-            if (gameState.passiveIncome > 0) { gameState.balance += (gameState.passiveIncome / updateFPS); }
-            document.getElementById('balance').innerText = Math.floor(gameState.balance).toLocaleString('ru-RU') + " ₽";
-            calculatePrestigeGain(); updateSmartButtons();
-        }, 1000 / updateFPS);
-
-        setInterval(function() {
-            if (isOverdoseActive) {
-                overdoseTimeLeft--;
-                document.getElementById('overdoseCountdown').innerText = overdoseTimeLeft;
-                if (overdoseTimeLeft <= 0) {
-                    isOverdoseActive = false;
-                    document.body.classList.remove('overdose-active');
-                    document.getElementById('overdoseBanner').style.display = 'none';
-                    updateUI();
-                }
-            }
-        }, 1000);
-
-        function setupAnomalySpawner() {
-            setTimeout(() => { spawnOverdoseAnomaly(); setupAnomalySpawner(); }, (45 + Math.random() * 45) * 1000);
-        }
-        setupAnomalySpawner();
-
-        function spawnOverdoseAnomaly() {
-            if (currentActiveTab !== 'main' || isOverdoseActive) return;
-            const sphere = document.createElement('div');
-            sphere.className = 'anomaly-sphere'; sphere.innerText = 'OVERDOSE!';
-            const x = 30 + Math.random() * (window.innerWidth - 140);
-            const y = 140 + Math.random() * (window.innerHeight - 340);
-            sphere.style.left = `${x}px`; sphere.style.top = `${y}px`;
-            const activate = (e) => { e.preventDefault(); sphere.remove(); activateEarnOverdose(); };
-            sphere.addEventListener('touchstart', activate);
-            document.body.appendChild(sphere);
-            setTimeout(() => { sphere.remove(); }, 6000);
-        }
-
-        function activateEarnOverdose() {
-            isOverdoseActive = true; overdoseTimeLeft = 15;
-            playSound('overdose_start');
-            document.body.classList.add('overdose-active');
-            document.getElementById('overdoseBanner').style.display = 'block';
-            updateUI();
-        }
-
-        function makeClick(event) {
-            if (event.type === 'touchstart') event.preventDefault();
-            gameState.balance += gameState.clickIncome;
-            playSound('click');
-            if (tg.HapticFeedback) tg.HapticFeedback.impactOccurred('light');
-            const btn = document.getElementById('coreBtn');
-            btn.classList.remove('rippling'); void btn.offsetWidth; btn.classList.add('rippling');
-            createFloatingNumber(event);
-            updateUI();
-        }
-
-        function createFloatingNumber(event) {
-            let clientX = event.touches ? event.touches[0].clientX : event.clientX;
-            let clientY = event.touches ? event.touches[0].clientY : event.clientY;
-            const num = document.createElement('div');
-            num.className = 'floating-number'; num.innerText = `+${Math.floor(gameState.clickIncome)}`;
-            num.style.left = `${clientX - 15}px`; num.style.top = `${clientY - 20}px`;
-            document.body.appendChild(num);
-            setTimeout(() => { num.remove(); }, 600);
-        }
-
-        function setMultiplier(amount) {
-            buyMultiplier = amount;
-            document.querySelectorAll('.mult-btn').forEach(btn => btn.classList.remove('active'));
-            document.getElementById('mult_' + amount).classList.add('active');
-            updateUI();
-        }
-
-        function getCostForLevels(type, currentLvl, count) {
-            let totalCost = 0; let tempLvl = currentLvl;
-            const config = upgradeConfig[type];
-            for (let i = 0; i < count; i++) {
-                totalCost += Math.floor(config.baseCost * Math.pow(config.factor, tempLvl));
-                tempLvl++;
-            }
-            return totalCost;
-        }
-
-        function updateUI() {
-            let prestigeMultiplier = 1 + (gameState.shards * 0.10);
-            let currentOverdoseBonus = isOverdoseActive ? 10 : 1;
-            let totalMultiplier = prestigeMultiplier * currentOverdoseBonus;
-
-            const baseClick = 1 + (gameState.upgrades.click_1 * upgradeConfig.click_1.power) + (gameState.upgrades.click_2 * upgradeConfig.click_2.power);
-            gameState.clickIncome = baseClick * totalMultiplier;
-
-            const basePassive = (gameState.upgrades.passive_1 * upgradeConfig.passive_1.power) + (gameState.upgrades.passive_2 * upgradeConfig.passive_2.power);
-            gameState.passiveIncome = basePassive * totalMultiplier;
-
-            document.getElementById('income').innerText = "+" + Math.floor(gameState.clickIncome) + " ₽";
-            document.getElementById('passiveIncome').innerText = "+" + Math.floor(gameState.passiveIncome) + " ₽/с";
-            document.getElementById('shardDisplay').innerText = gameState.shards;
-            document.getElementById('boostDisplay').innerText = "+" + (gameState.shards * 10) + "%" + (isOverdoseActive ? " | x10 🔥" : "");
-
-            for (let key in gameState.upgrades) {
-                const lvlEl = document.getElementById('lvl_' + key);
-                if (lvlEl) lvlEl.innerText = "Lvl " + gameState.upgrades[key];
-            }
-
-            if (gameState.upgrades.click_1 >= 5) unlockNode('click_2'); else lockNode('click_2');
-            if (gameState.upgrades.passive_1 >= 5) unlockNode('passive_2'); else lockNode('passive_2');
-            updateSmartButtons();
-
-            tg.MainButton.setText("Сохранить и Выйти");
-            tg.MainButton.show();
-        }
-
-        function calculatePrestigeGain() {
-            const prestigeBtn = document.getElementById('prestigeCallBtn');
-            const gainDisplay = document.getElementById('prestigeGainDisplay');
-            if (gameState.balance >= 1000000) {
-                let shardsToGain = Math.floor(Math.sqrt(gameState.balance / 1000000));
-                gainDisplay.innerText = shardsToGain.toLocaleString('ru-RU') + " ⚛️";
-                if(prestigeBtn) prestigeBtn.disabled = false;
-            } else {
-                gainDisplay.innerText = "0 ⚛️";
-                if(prestigeBtn) prestigeBtn.disabled = true;
-            }
-        }
-
-        function triggerPrestige() {
-            if (gameState.balance < 1000000) return;
-            let shardsToGain = Math.floor(Math.sqrt(gameState.balance / 1000000));
-            tg.showConfirm(`Вы уверены? Вы получите ${shardsToGain} осколков, но сбросите рубли.`, function(confirmed) {
-                if (confirmed) {
-                    gameState.shards += shardsToGain;
-                    gameState.balance = 0;
-                    gameState.upgrades = { click_1: 0, click_2: 0, passive_1: 0, passive_2: 0 };
-                    switchTab('main');
-                    sendSaveToCloud(false);
-                }
-            });
-        }
-
-        function updateSmartButtons() {
-            for (let key in gameState.upgrades) {
-                const cost = getCostForLevels(key, gameState.upgrades[key], buyMultiplier);
-                const btn = document.getElementById('btn_' + key);
-                const node = document.getElementById('node_' + key);
-                if (!btn || node.classList.contains('locked')) continue;
-                if (gameState.balance >= cost) {
-                    btn.className = "btn available"; btn.innerText = `Купить x${buyMultiplier} • ${cost.toLocaleString('ru-RU')} ₽`;
-                } else {
-                    btn.className = "btn not-available"; btn.innerText = `Еще ${Math.ceil(cost - gameState.balance).toLocaleString('ru-RU')} ₽`;
+            // Расчет оффлайн-дохода
+            const now = Date.now();
+            const secondsOffline = Math.floor((now - (gameState.lastSaveTime || now)) / 1000);
+            if (secondsOffline > 15) {
+                let multiplier = 1 + ((gameState.shards || 0) * 0.10);
+                let basePassive = ((gameState.upgrades.passive_1 || 0) * upgradeConfig.passive_1.power) + ((gameState.upgrades.passive_2 || 0) * upgradeConfig.passive_2.power);
+                let offlineEarnings = secondsOffline * (basePassive * multiplier);
+                if (offlineEarnings > 0) {
+                    gameState.balance += offlineEarnings;
+                    showOfflineModal(secondsOffline, offlineEarnings);
                 }
             }
         }
+        updateUI();
+        if (currentActiveTab === 'leaderboard') renderLeaderboard();
+        if (currentActiveTab === 'upgrades') renderUpgrades();
+    })
+    .catch(err => {
+        console.log("Запущено в автономном режиме:", err);
+        updateUI();
+        if (currentActiveTab === 'leaderboard') renderLeaderboard();
+    });
+}
 
-        function unlockNode(id) {
-            const node = document.getElementById('node_' + id);
-            if (node && node.classList.contains('locked')) {
-                node.classList.remove('locked'); document.getElementById('lock_' + id).style.display = 'none'; document.getElementById('btn_' + id).disabled = false;
-            }
+// 2. ЗАГРУЗКА ДАННЫХ ТОПА ПРИ ПЕРЕХОДЕ НА ВКЛАДКУ
+function loadLiveTopData() {
+    const userId = tg.initDataUnsafe?.user?.id || 12345;
+    
+    fetch(DATABASE_URL.trim(), {
+        method: "POST",
+        headers: { "Content-Type": "text/plain" },
+        body: JSON.stringify({ action: "load", user_id: userId })
+    })
+    .then(res => {
+        if (!res.ok) throw new Error('CORS/Network Error');
+        return res.text();
+    })
+    .then(text => {
+        if (!text.trim().startsWith('{')) return;
+        const data = JSON.parse(text);
+        if (data.status === "success" && data.top) {
+            leaderData = data.top;
+            localStorage.setItem('quantum_last_top', JSON.stringify(data.top));
+            if (currentActiveTab === 'leaderboard') renderLeaderboard();
         }
+    })
+    .catch(e => {
+        console.log("Отображаем топ из кэша:", e);
+        const cachedTop = localStorage.getItem('quantum_last_top');
+        if (cachedTop) leaderData = JSON.parse(cachedTop);
+        if (currentActiveTab === 'leaderboard') renderLeaderboard();
+    });
+}
 
-        function lockNode(id) {
-            const node = document.getElementById('node_' + id);
-            if (node && !node.classList.contains('locked')) {
-                node.classList.add('locked'); document.getElementById('lock_' + id).style.display = 'block'; document.getElementById('btn_' + id).disabled = true;
-            }
+// 3. СОХРАНЕНИЕ ИГРЫ В ОБЛАКО
+function saveGameData(isManual = false) {
+    const userId = tg.initDataUnsafe?.user?.id || 12345;
+    const username = tg.initDataUnsafe?.user?.first_name || "Игрок";
+    
+    gameState.lastSaveTime = Date.now();
+    localStorage.setItem(`quantum_save_${userId}`, JSON.stringify(gameState));
+    
+    fetch(DATABASE_URL.trim(), {
+        method: "POST",
+        headers: { "Content-Type": "text/plain" },
+        body: JSON.stringify({
+            action: "save",
+            user_id: userId,
+            username: username,
+            save: gameState
+        })
+    })
+    .then(res => res.text())
+    .then(text => {
+        const data = JSON.parse(text);
+        if (data.status === "success" && isManual) {
+            alert("Игра успешно сохранена в облако!");
         }
+    })
+    .catch(e => console.log("Фоновое автосохранение не удалось:", e));
+}
 
-        function buyUpgrade(type) {
-            const currentLvl = gameState.upgrades[type];
-            const cost = getCostForLevels(type, currentLvl, buyMultiplier);
-            if (gameState.balance >= cost) {
-                gameState.balance -= cost; gameState.upgrades[type] += buyMultiplier;
-                playSound('upgrade'); updateUI();
-                
-                const userId = tg.initDataUnsafe?.user?.id || 12345;
-                localStorage.setItem(`quantum_save_${userId}`, JSON.stringify(gameState));
-            }
-        }
+// 4. МЕХАНИКА КЛИКА С АНИМАЦИЕЙ ЦИФР (+1)
+function handleTap(event) {
+    let clickPower = 1 + ((gameState.upgrades.click_1 || 0) * upgradeConfig.click_1.power) + ((gameState.upgrades.click_2 || 0) * upgradeConfig.click_2.power);
+    let multiplier = 1 + ((gameState.shards || 0) * 0.10);
+    let totalClick = clickPower * multiplier;
+    
+    gameState.balance += totalClick;
+    updateUI();
 
-        // КНОПКА ТЕЛЕГРАМА ВНИЗУ
-        tg.onEvent('mainButtonClicked', function(){
-            sendSaveToCloud(true);
-        });
+    // Создаем всплывающий текст +X ₽ в месте клика
+    if (event) {
+        const clickText = document.createElement('div');
+        clickText.innerText = `+${Math.floor(totalClick)} ₽`;
+        clickText.className = 'click-animation'; // Убедись, что этот класс есть в твоих стилях <style>
+        clickText.style.left = `${event.clientX}px`;
+        clickText.style.top = `${event.clientY}px`;
+        document.body.appendChild(clickText);
+        setTimeout(() => { clickText.remove(); }, 800);
+    }
+}
 
-        // Запуск игры
-        initGameData();
+// 5. ПОКУПКА АПГРЕЙДОВ
+function buyUpgrade(type) {
+    let currentLevel = gameState.upgrades[type] || 0;
+    let currentCost = getUpgradeCost(type, currentLevel);
+    
+    if (gameState.balance >= currentCost) {
+        gameState.balance -= currentCost;
+        gameState.upgrades[type] = currentLevel + 1;
+        updateUI();
+        if (currentActiveTab === 'upgrades') renderUpgrades();
+    } else {
+        alert("Недостаточно рублей для улучшения!");
+    }
+}
+
+// 6. ПОКУПКА ОСКОЛКОВ (ПРЕСТИЖ)
+function buyShard() {
+    const SHARD_COST = 1000000; // 1 миллион рублей
+    if (gameState.balance >= SHARD_COST) {
+        gameState.balance -= SHARD_COST;
+        gameState.shards = (gameState.shards || 0) + 1;
+        alert("Вы успешно приобрели Осколок Квантума! Ваш буст увеличен.");
+        updateUI();
+    } else {
+        alert(`Для покупки осколка нужно ${SHARD_COST.toLocaleString('ru-RU')} ₽!`);
+    }
+}
+
+// 7. ОБНОВЛЕНИЕ ГЛАВНЫХ ТЕКСТОВЫХ ПОЛЕЙ
+function updateUI() {
+    const balanceEl = document.getElementById('balanceDisplay');
+    if (balanceEl) balanceEl.innerText = Math.floor(gameState.balance).toLocaleString('ru-RU') + " ₽";
+    
+    let clickPower = 1 + ((gameState.upgrades.click_1 || 0) * upgradeConfig.click_1.power) + ((gameState.upgrades.click_2 || 0) * upgradeConfig.click_2.power);
+    let basePassive = ((gameState.upgrades.passive_1 || 0) * upgradeConfig.passive_1.power) + ((gameState.upgrades.passive_2 || 0) * upgradeConfig.passive_2.power);
+    let multiplier = 1 + ((gameState.shards || 0) * 0.10);
+
+    const clickPowerEl = document.getElementById('clickPowerDisplay');
+    if (clickPowerEl) clickPowerEl.innerText = `Клик: +${(clickPower * multiplier).toFixed(0)} ₽`;
+
+    const passivePowerEl = document.getElementById('passivePowerDisplay');
+    if (passivePowerEl) passivePowerEl.innerText = `Пассив: +${(basePassive * multiplier).toFixed(1)} ₽/с`;
+
+    const shardsEl = document.getElementById('shardsDisplay');
+    if (shardsEl) shardsEl.innerText = `Осколки: ${gameState.shards || 0} (Буст: +${((gameState.shards || 0) * 10)}%)`;
+}
+
+// 8. ДИНАМИЧЕСКИЙ РЕНДЕР ВКЛАДКИ УЛУЧШЕНИЙ (С ЦЕНАМИ И УРОВНЯМИ)
+function renderUpgrades() {
+    const container = document.getElementById('upgradesContainer');
+    if (!container) return;
+    
+    let html = "";
+    Object.keys(upgradeConfig).forEach(type => {
+        let level = gameState.upgrades[type] || 0;
+        let cost = getUpgradeCost(type, level);
+        let config = upgradeConfig[type];
+        let typeText = type.startsWith('click') ? "к клику" : "в сек";
+        let powerValue = config.power;
+        
+        html += `
+            <div class="upgrade-item" style="display: flex; justify-content: space-between; align-items: center; padding: 12px; margin-bottom: 10px; background: rgba(255,255,255,0.02); border: 1px solid #2d2c30; border-radius: 12px;">
+                <div>
+                    <div style="font-weight: bold; color: #fff;">${config.name} <span style="color: #a1a0a5; font-size: 13px;">[Ур. ${level}]</span></div>
+                    <div style="font-size: 13px; color: #818085;">+${powerValue} ${typeText}</div>
+                </div>
+                <button class="buy-btn" onclick="buyUpgrade('${type}')" style="background: #4caf50; color: #fff; border: none; padding: 8px 16px; border-radius: 8px; font-weight: bold; cursor: pointer;">
+                    ${cost.toLocaleString('ru-RU')} ₽
+                </button>
+            </div>
+        `;
+    });
+    container.innerHTML = html;
+}
+
+// 9. ОТРИСОВКА ТАБЛИЦЫ ЛИДЕРОВ
+function renderLeaderboard() {
+    const container = document.getElementById('leaderboardContainer');
+    if (!container) return;
+    
+    if (leaderData.length === 0) {
+        container.innerHTML = `<div style="color: #919094; margin-top: 20px;">Режим бэкапа (Сеть недоступна)</div>`;
+        return;
+    }
+    
+    let html = "";
+    leaderData.forEach((player, index) => {
+        let rankColor = "#ffffff";
+        if (index === 0) rankColor = "#ffca28"; // Золотой цвет первому месту
+        if (index === 1) rankColor = "#b0bec5"; // Серебряный
+        if (index === 2) rankColor = "#bcaaa4"; // Бронзовый
+        
+        html += `
+            <div class="leader-item" style="display: flex; justify-content: space-between; padding: 10px; margin-bottom: 8px; background: rgba(255,255,255,0.03); border-radius: 8px; border: 1px solid #2d2c30;">
+                <div style="display: flex; gap: 12px;">
+                    <span style="color: ${rankColor}; font-weight: bold;">#${index + 1}</span>
+                    <span style="color: #fff;">${player.name}</span>
+                </div>
+                <span style="color: #4caf50; font-weight: bold;">${Math.floor(player.balance).toLocaleString('ru-RU')} ₽</span>
+            </div>
+        `;
+    });
+    container.innerHTML = html;
+}
+
+// 10. МОДАЛЬНОЕ ОКНО ОФФЛАЙН ДОХОДА
+function showOfflineModal(seconds, amount) {
+    // Если у тебя есть кастомная верстка модалки — можешь заменить этот блок.
+    // Пока создаем красивое системное уведомление:
+    const hours = Math.floor(seconds / 3600);
+    const minutes = Math.floor((seconds % 3600) / 60);
+    let timeText = hours > 0 ? `${hours} ч. ${minutes} мин.` : `${seconds} сек.`;
+    
+    alert(`Вас не было в сети ${timeText}!\nПассивный доход принес вам: +${Math.floor(amount).toLocaleString('ru-RU')} ₽`);
+}
+
+// 11. НАВИГАЦИЯ И ПЕРЕКЛЮЧЕНИЕ ВКЛАДОК
+function switchTab(tabId) {
+    currentActiveTab = tabId;
+    
+    // Скрываем контейнеры всех вкладок
+    document.querySelectorAll('.tab-content').forEach(el => el.style.display = 'none');
+    
+    // Показываем активную
+    const targetTab = document.getElementById(`${tabId}Tab`);
+    if (targetTab) targetTab.style.display = 'block';
+    
+    // Переключаем стили кнопок меню
+    document.querySelectorAll('.nav-btn').forEach(el => el.classList.remove('active'));
+    const activeBtn = document.getElementById(`btn-${tabId}`);
+    if (activeBtn) activeBtn.classList.add('active');
+    
+    // Специфические действия при открытии вкладок
+    if (tabId === 'leaderboard') {
+        loadLiveTopData();
+    }
+    if (tabId === 'upgrades') {
+        renderUpgrades();
+    }
+}
+
+// Ежесекундный таймер начисления пассивного дохода
+setInterval(() => {
+    let basePassive = ((gameState.upgrades.passive_1 || 0) * upgradeConfig.passive_1.power) + ((gameState.upgrades.passive_2 || 0) * upgradeConfig.passive_2.power);
+    let multiplier = 1 + ((gameState.shards || 0) * 0.10);
+    
+    if (basePassive > 0) {
+        gameState.balance += (basePassive * multiplier);
+        updateUI();
+    }
+}, 1000);
+
+// Таймер автосохранения в облако Google (каждые 20 секунд)
+setInterval(() => {
+    saveGameData(false);
+}, 20000);
+
+// Полный старт игры при загрузке страницы
+window.onload = function() {
+    initGameData();
+    switchTab('game'); // Стартуем на вкладке кликера
+};
     </script>
 </body>
 </html>
