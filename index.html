@@ -190,8 +190,10 @@
         const tg = window.Telegram.WebApp;
         tg.expand();
 
-        // СЮДА ВСТАВЬ СВОЮ ССЫЛКУ ИЗ GOOGLE APPS SCRIPT
-        const DATABASE_URL = "https://script.google.com/macros/s/AKfycbzegfPLMMEIXzH-Q2MuEglZCv4SUEpvi73DgCEafeRMVNEZORsDG3K4aZS7aoNWXrK7/exec"; 
+        // ==========================================
+        // НАСТРОЙКА: ВСТАВЬ СВОЮ ССЫЛКУ ИЗ GOOGLE APPS SCRIPT
+        // ==========================================
+        const DATABASE_URL = "ЗАМЕНИ_НА_СВОЙ_URL_ИЗ_GOOGLE_APPS_SCRIPT"; 
 
         let buyMultiplier = 1;
         let isOverdoseActive = false;
@@ -222,7 +224,7 @@
                     osc.start(now); osc.stop(now + 0.2);
                 } else if (type === 'overdose_start') {
                     osc.type = 'sawtooth'; osc.frequency.setValueAtTime(100, now);
-                    osc.exponentialRampToValueAtTime(900, now + 0.5);
+                    osc.frequency.exponentialRampToValueAtTime(900, now + 0.5);
                     gain.gain.setValueAtTime(0.25, now); gain.gain.linearRampToValueAtTime(0, now + 0.5);
                     osc.start(now); osc.stop(now + 0.5);
                 }
@@ -241,82 +243,94 @@
             passive_2: { baseCost: 800, factor: 1.20, power: 15 }
         };
 
-        // ХЕНДЛЕР: Отправка сейва в фоне на "сервер" Google
+        // 1. ОТПРАВКА СЕЙВА (ФОНОВАЯ И ФИНАЛЬНАЯ) THROUGH POST
         function sendSaveToCloud(isFinal = false) {
             const userId = tg.initDataUnsafe?.user?.id || 12345;
             const username = tg.initDataUnsafe?.user?.first_name || "Аноним";
             gameState.lastSaveTime = Date.now();
 
             const packageData = {
+                action: "save",
                 user_id: userId,
                 username: username,
                 save: gameState
             };
 
-            // Отправляем HTTP POST запрос в Google Таблицу
             fetch(DATABASE_URL, {
                 method: "POST",
-                mode: "no-cors", // Позволяет слать запросы без проблем с CORS
-                headers: { "Content-Type": "application/json" },
+                headers: { "Content-Type": "text/plain" },
                 body: JSON.stringify(packageData)
-            }).then(() => {
+            })
+            .then(() => {
                 if(isFinal) {
-                    // Если это финальный клик по кнопке "Выйти" — дублируем в бота, чтобы закрыть окно
                     tg.sendData(JSON.stringify({status: "saved"}));
                     tg.close();
                 }
-            }).catch(err => console.log("Фоновое сохранение не удалось:", err));
+            })
+            .catch(err => console.log("Ошибка автосохранения:", err));
         }
 
-        // Автосохранение каждые 15 секунд + мгновенное обновление топов
+        // Автосохранение каждые 20 секунд
         setInterval(() => {
             sendSaveToCloud(false);
-            loadLiveTopData(); // Стягиваем свежие топы
-        }, 15000);
+        }, 20000);
 
-        // Функция фоновой загрузки живого ТОПа
+        // 2. ЖИВАЯ ЗАГРУЗКА ТОПОВ ПРИ ПЕРЕХОДЕ НА ВКЛАДКУ THROUGH POST
         function loadLiveTopData() {
             const userId = tg.initDataUnsafe?.user?.id || 12345;
-            fetch(`${DATABASE_URL}?user_id=${userId}`)
+            
+            fetch(DATABASE_URL, {
+                method: "POST",
+                headers: { "Content-Type": "text/plain" },
+                body: JSON.stringify({ action: "load", user_id: userId })
+            })
             .then(res => res.json())
             .then(data => {
-                if(data.top) {
+                if (data.status === "success" && data.top) {
                     leaderData = data.top;
                     if(currentActiveTab === 'leaderboard') renderLeaderboard();
                 }
-            }).catch(e => console.log("Ошибка загрузки топа:", e));
+            })
+            .catch(e => console.log("Ошибка загрузки топа:", e));
         }
 
-        // ПОЛУЧЕНИЕ ДАННЫХ ПРИ СТАРТЕ
+        // 3. ИНИЦИАЛИЗАЦИЯ ИГРЫ ПРИ СТАРТЕ THROUGH POST
         function initGameData() {
             const userId = tg.initDataUnsafe?.user?.id || 12345;
             
-            // Запрашиваем сейв напрямую из Google базы данных
-            fetch(`${DATABASE_URL}?user_id=${userId}`)
+            document.getElementById('leaderboardContainer').innerHTML = `<div style="color: #919094; margin-top: 20px;">Загрузка данных...</div>`;
+
+            fetch(DATABASE_URL, {
+                method: "POST",
+                headers: { "Content-Type": "text/plain" },
+                body: JSON.stringify({ action: "load", user_id: userId })
+            })
             .then(res => res.json())
             .then(data => {
-                if (data.save) {
-                    gameState = data.save;
-                    
-                    // Расчет оффлайн-дохода
-                    const now = Date.now();
-                    const secondsOffline = Math.floor((now - (gameState.lastSaveTime || now)) / 1000);
-                    if (secondsOffline > 15 && gameState.upgrades) {
-                        let multiplier = 1 + ((gameState.shards || 0) * 0.10);
-                        let basePassive = ((gameState.upgrades.passive_1 || 0) * upgradeConfig.passive_1.power) + ((gameState.upgrades.passive_2 || 0) * upgradeConfig.passive_2.power);
-                        let actualPassive = basePassive * multiplier;
-                        let offlineEarnings = secondsOffline * actualPassive;
-                        if (offlineEarnings > 0) {
-                            gameState.balance += offlineEarnings;
-                            setTimeout(() => { showOfflineModal(secondsOffline, offlineEarnings); }, 600);
+                if (data.status === "success") {
+                    if (data.save) {
+                        gameState = data.save;
+                        
+                        // Расчет оффлайн-дохода
+                        const now = Date.now();
+                        const secondsOffline = Math.floor((now - (gameState.lastSaveTime || now)) / 1000);
+                        if (secondsOffline > 15 && gameState.upgrades) {
+                            let multiplier = 1 + ((gameState.shards || 0) * 0.10);
+                            let basePassive = ((gameState.upgrades.passive_1 || 0) * upgradeConfig.passive_1.power) + ((gameState.upgrades.passive_2 || 0) * upgradeConfig.passive_2.power);
+                            let actualPassive = basePassive * multiplier;
+                            let offlineEarnings = secondsOffline * actualPassive;
+                            if (offlineEarnings > 0) {
+                                gameState.balance += offlineEarnings;
+                                setTimeout(() => { showOfflineModal(secondsOffline, offlineEarnings); }, 600);
+                            }
                         }
                     }
+                    if (data.top) leaderData = data.top;
                 }
-                if (data.top) leaderData = data.top;
                 updateUI();
             })
             .catch(err => {
-                console.log("Режим оффлайн/Локальный бэкап", err);
+                console.log("Режим оффлайн. Загрузка локального бэкапа", err);
                 const localSave = localStorage.getItem(`quantum_save_${userId}`);
                 if(localSave) gameState = JSON.parse(localSave);
                 updateUI();
@@ -332,7 +346,7 @@
             const multContainer = document.getElementById('multContainer');
             multContainer.style.display = (tabId === 'upgrades' || tabId === 'office') ? 'flex' : 'none';
             if (tabId === 'leaderboard') {
-                loadLiveTopData(); // Принудительно обновляем при переходе на вкладку
+                loadLiveTopData(); 
                 renderLeaderboard();
             }
             if (tg.HapticFeedback) tg.HapticFeedback.impactOccurred('light');
@@ -501,7 +515,7 @@
                     gameState.balance = 0;
                     gameState.upgrades = { click_1: 0, click_2: 0, passive_1: 0, passive_2: 0 };
                     switchTab('main');
-                    sendSaveToCloud(false); // Сразу сохраняем престиж
+                    sendSaveToCloud(false);
                 }
             });
         }
@@ -546,12 +560,12 @@
             }
         }
 
-        // НАЖАТИЕ НА ГЛАВНУЮ КНОПКУ: Триггерим финальный сейв
+        // КНОПКА ТЕЛЕГРАМА ВНИЗУ
         tg.onEvent('mainButtonClicked', function(){
             sendSaveToCloud(true);
         });
 
-        // Запуск
+        // Запуск игры
         initGameData();
     </script>
 </body>
