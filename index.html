@@ -2,460 +2,529 @@
 <html lang="ru">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Quantum Clicker Pro</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>Quantum Clicker</title>
+    
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
 
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
+
     <style>
-        body {
-            font-family: 'Roboto', 'Segoe UI', system-ui, -apple-system, sans-serif;
-            background-color: #111218; color: #e3e2e6; margin: 0; padding: 16px 16px 90px 16px;
-            text-align: center; user-select: none; -webkit-user-select: none; overflow-x: hidden; transition: background-color 0.3s ease;
+        /* Базовые стили для адаптивности в Telegram */
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            user-select: none;
+            -webkit-user-select: none;
         }
-        body.overdose-active { background-color: #1a0b2e; animation: dangerPulse 1.5s infinite alternate; }
-        @keyframes dangerPulse { 0% { box-shadow: inset 0 0 40px rgba(139, 92, 246, 0.2); } 100% { box-shadow: inset 0 0 60px rgba(239, 68, 68, 0.4); } }
-        h1 { color: #e3e2e6; margin: 0 0 4px 0; font-size: 24px; font-weight: 400; }
-        p { font-size: 14px; color: #919094; margin-top: 0; }
-        .stats-container { background: #1d1b20; padding: 20px; border-radius: 24px; margin-bottom: 20px; position: relative; z-index: 10; }
-        .balance-label { font-size: 13px; color: #cbc4cf; letter-spacing: 0.5px; text-transform: uppercase; }
-        .money { color: #34c759; font-weight: 500; font-size: 36px; display: block; margin: 8px 0; min-height: 44px; }
-        .sub-stats { display: flex; justify-content: space-around; margin-top: 12px; font-size: 14px; color: #919094; background: #262429; padding: 8px; border-radius: 16px; }
-        .prestige-info { font-size: 13px; color: #e1e2ec; background: #2b2930; padding: 10px; border-radius: 16px; margin-top: 10px; display: flex; justify-content: center; align-items: center; gap: 8px; }
-        .shard-color { color: #7da4ff; font-weight: bold; }
-        .overdose-timer-banner { display: none; background: linear-gradient(90deg, #ef4444, #8b5cf6); color: #ffffff; padding: 8px; border-radius: 12px; margin-bottom: 15px; font-weight: bold; font-size: 14px; animation: bounce 0.5s infinite alternate; }
-        @keyframes bounce { 0% { transform: scale(1); } 100% { transform: scale(1.02); } }
-        .tab-bar { position: fixed; bottom: 0; left: 0; right: 0; height: 72px; background: #1d1b20; display: flex; justify-content: space-around; align-items: center; z-index: 1000; box-shadow: 0 -2px 10px rgba(0,0,0,0.2); }
-        .tab-btn { background: none; border: none; color: #cbc4cf; font-size: 11px; cursor: pointer; display: flex; flex-direction: column; align-items: center; gap: 4px; width: 20%; transition: color 0.2s ease; }
-        .tab-btn .icon-wrapper { padding: 4px 16px; border-radius: 16px; transition: background-color 0.2s ease; }
-        .tab-btn .icon { font-size: 18px; }
-        .tab-btn.active { color: #d0bcff; font-weight: 500; }
-        .tab-btn.active .icon-wrapper { background-color: #4f378b; }
-        .tab-content { display: none; }
-        .tab-content.active { display: block; }
-        .click-area { position: relative; margin: 40px auto; width: 160px; height: 160px; }
-        .click-btn { width: 160px; height: 160px; border-radius: 32px; background: #adc6ff; color: #002e69; font-size: 65px; cursor: pointer; border: none; outline: none; display: flex; align-items: center; justify-content: center; transition: transform 0.08s cubic-bezier(0, 0, 0.2, 1); position: relative; z-index: 2; box-shadow: 0 8px 24px rgba(173, 198, 255, 0.2); }
-        .click-btn .icon-energy { transition: transform 0.1s ease; display: inline-block; }
-        body.overdose-active .click-btn { background: #ffb4ab; color: #690005; box-shadow: 0 8px 30px rgba(239, 68, 68, 0.5); }
-        .click-btn::after { content: ''; position: absolute; top: 0; left: 0; right: 0; bottom: 0; border-radius: 32px; background: transparent; box-shadow: 0 0 0 0 rgba(173, 198, 255, 0.6); transition: opacity 0.2s, box-shadow 0.2s; opacity: 0; z-index: -1; }
-        .click-btn:active { transform: scale(0.93); }
-        .click-btn:active .icon-energy { transform: scale(0.85) rotate(-15deg); }
-        .click-btn.rippling::after { opacity: 1; box-shadow: 0 0 0 25px rgba(173, 198, 255, 0); transition: 0s; }
-        .anomaly-sphere { position: fixed; width: 75px; height: 75px; border-radius: 50%; background: radial-gradient(circle, #ff5555, #8b5cf6); box-shadow: 0 0 20px #ef4444, inset 0 0 10px #ffffff; color: #ffffff; font-size: 11px; font-weight: bold; display: flex; align-items: center; justify-content: center; cursor: pointer; z-index: 999; text-transform: uppercase; animation: spawnSphere 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275), glitch 0.3s infinite alternate; }
-        @keyframes spawnSphere { 0% { transform: scale(0); } 100% { transform: scale(1); } }
-        @keyframes glitch { 0% { filter: hue-rotate(0deg); } 100% { filter: hue-rotate(45deg); } }
-        .floating-number { position: fixed; pointer-events: none; color: #adc6ff; font-weight: bold; font-size: 22px; z-index: 9999; animation: floatUp 0.6s cubic-bezier(0.1, 0.8, 0.3, 1) forwards; text-shadow: 0 2px 4px rgba(0,0,0,0.5); }
-        body.overdose-active .floating-number { color: #ffb4ab; font-size: 28px; }
-        @keyframes floatUp { 0% { transform: translateY(0) scale(1); opacity: 1; } 100% { transform: translateY(-80px) scale(0.8); opacity: 0; } }
-        .multiplier-container { display: flex; justify-content: center; margin: 8px 0 24px 0; background: #262429; border-radius: 20px; padding: 4px; width: fit-content; margin: auto; }
-        .mult-btn { background: none; color: #cbc4cf; border: none; padding: 6px 16px; border-radius: 16px; font-weight: 500; cursor: pointer; font-size: 13px; transition: all 0.2s; }
-        .mult-btn.active { background: #4f378b; color: #e6e1e5; }
-        .tree-container { display: flex; flex-direction: column; gap: 12px; align-items: center; }
-        .upgrade-node { width: 90%; max-width: 360px; background: #211f26; border-radius: 16px; padding: 16px; text-align: left; position: relative; box-sizing: border-box; }
-        .upgrade-node.locked { background: #141218; opacity: 0.3; }
-        .upgrade-title { font-weight: 500; font-size: 16px; display: flex; justify-content: space-between; align-items: center;}
-        .upgrade-desc { font-size: 13px; color: #919094; margin: 6px 0 14px 0; }
-        .lvl-badge { background: #332d41; color: #d0bcff; padding: 4px 10px; border-radius: 8px; font-size: 12px; font-weight: 500; }
-        .btn { color: #ffffff; border: none; padding: 12px 16px; border-radius: 100px; font-weight: 500; cursor: pointer; width: 100%; font-size: 14px; box-shadow: 0 1px 3px rgba(0,0,0,0.2); transition: background-color 0.2s, color 0.2s; }
-        .btn.available { background: #34c759; color: #ffffff; }
-        .btn.not-available { background: #313033; color: #919094; }
-        .btn:disabled { background: #1d1b20; color: #48484a; cursor: not-allowed; box-shadow: none; }
-        .btn.prestige-btn { background: #4f378b; color: #ffffff; margin-top: 16px; font-size: 15px; padding: 14px; }
-        .btn.prestige-btn:disabled { background: #262429; color: #48484a; }
-        .locked-badge { position: absolute; right: 16px; top: 16px; color: #ffb4ab; font-size: 12px; font-weight: 500; }
-        .leaderboard-list { display: flex; flex-direction: column; gap: 8px; width: 95%; max-width: 360px; margin: 15px auto; padding: 0; }
-        .leader-item { display: flex; align-items: center; justify-content: space-between; background: #211f26; padding: 12px 16px; border-radius: 16px; box-sizing: border-box; }
-        .leader-rank { font-weight: bold; width: 35px; text-align: left; color: #adc6ff; }
-        .leader-name { flex-grow: 1; text-align: left; font-weight: 500; text-overflow: ellipsis; overflow: hidden; white-space: nowrap; padding-right: 8px; }
-        .leader-score { font-weight: 500; color: #34c759; }
-        .modal-backdrop { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0, 0, 0, 0.6); backdrop-filter: blur(4px); z-index: 2000; display: flex; align-items: flex-end; opacity: 0; pointer-events: none; transition: opacity 0.3s ease; }
-        .modal-backdrop.open { opacity: 1; pointer-events: auto; }
-        .bottom-sheet { width: 100%; background: #1d1b20; border-radius: 28px 28px 0 0; padding: 24px 24px 32px 24px; box-sizing: border-box; text-align: center; transform: translateY(100%); transition: transform 0.3s cubic-bezier(0, 0, 0.2, 1); }
-        .modal-backdrop.open .bottom-sheet { transform: translateY(0); }
-        .sheet-drag-handle { width: 32px; height: 4px; background: #49454f; border-radius: 2px; margin: 0 auto 16px auto; }
-        .modal-title { font-size: 22px; color: #e3e2e6; margin-bottom: 8px; font-weight: 400; }
-        .modal-time { font-size: 14px; color: #919094; margin-bottom: 20px; }
-        .modal-reward { font-size: 32px; color: #34c759; font-weight: 500; margin-bottom: 24px; }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+            background-color: #0b0a0d;
+            color: #ffffff;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+            height: 100vh;
+        }
+
+        /* Шапка с балансом */
+        .header {
+            text-align: center;
+            padding: 25px 15px 15px 15px;
+            background: linear-gradient(180deg, rgba(31,27,43,0.5) 0%, rgba(11,10,13,0) 100%);
+        }
+
+        .balance-title {
+            font-size: 14px;
+            color: #818085;
+            text-transform: uppercase;
+            letter-spacing: 1.5px;
+            margin-bottom: 5px;
+        }
+
+        .balance-amount {
+            font-size: 36px;
+            font-weight: 800;
+            color: #4caf50;
+            text-shadow: 0 0 15px rgba(76,175,80,0.3);
+        }
+
+        .stats-row {
+            display: flex;
+            justify-content: center;
+            gap: 15px;
+            margin-top: 10px;
+            font-size: 12px;
+            color: #a1a0a5;
+        }
+
+        /* Контентная зона вкладок */
+        .content-area {
+            flex: 1;
+            overflow-y: auto;
+            padding: 15px;
+            padding-bottom: 90px; /* Чтобы контент не залезал под нижнее меню */
+        }
+
+        .tab-content {
+            display: none;
+            height: 100%;
+        }
+
+        /* ВКЛАДКА: ИГРА (КЛИКЕР) */
+        .game-container {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 100%;
+            min-height: 280px;
+        }
+
+        .click-circle {
+            width: 200px;
+            height: 200px;
+            border-radius: 50%;
+            background: radial-gradient(circle, #2a1f42 0%, #171226 100%);
+            border: 4px solid #7b52ff;
+            box-shadow: 0 0 30px rgba(123,82,255,0.2);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            transition: transform 0.05s ease;
+        }
+
+        .click-circle:active {
+            transform: scale(0.95);
+            border-color: #9d7cff;
+            box-shadow: 0 0 40px rgba(123,82,255,0.4);
+        }
+
+        .click-circle img {
+            width: 60%;
+            pointer-events: none;
+        }
+
+        /* Анимация всплывающих цифр +X ₽ */
+        .click-animation {
+            position: absolute;
+            font-size: 22px;
+            font-weight: 800;
+            color: #4caf50;
+            pointer-events: none;
+            animation: floatUp 0.8s ease-out forwards;
+            text-shadow: 0 0 8px rgba(0,0,0,0.6);
+            z-index: 1000;
+        }
+
+        @keyframes floatUp {
+            0% { transform: translateY(0) scale(1); opacity: 1; }
+            100% { transform: translateY(-100px) scale(0.8); opacity: 0; }
+        }
+
+        /* Общие кнопки действий (Престиж, Сейв) */
+        .action-btn {
+            background: #2d2c30;
+            color: white;
+            border: 1px solid #444;
+            padding: 12px 20px;
+            border-radius: 12px;
+            font-weight: bold;
+            width: 100%;
+            margin-top: 15px;
+            cursor: pointer;
+        }
+        .action-btn.shards-btn {
+            background: linear-gradient(90deg, #673ab7 0%, #9c27b0 100%);
+            border: none;
+        }
+
+        /* НИЖНЯЯ НАВИГАЦИЯ */
+        .nav-bar {
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            height: 70px;
+            background-color: #121115;
+            border-top: 1px solid #232227;
+            display: flex;
+            justify-content: space-around;
+            align-items: center;
+            padding: 0 10px;
+            z-index: 100;
+        }
+
+        .nav-btn {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            background: none;
+            border: none;
+            color: #616065;
+            cursor: pointer;
+            font-size: 11px;
+            font-weight: 500;
+            flex: 1;
+        }
+
+        .nav-btn.active {
+            color: #7b52ff;
+        }
+
+        .nav-icon {
+            font-size: 20px;
+            margin-bottom: 4px;
+        }
+
+        /* Кастомизация скроллбара для красивого вида списков */
+        ::-webkit-scrollbar {
+            width: 4px;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #2d2c30;
+            border-radius: 10px;
+        }
     </style>
 </head>
 <body>
 
-    <div id="overdoseBanner" class="overdose-timer-banner">⚠️ КВАНТОВЫЙ РАЗГОН x10: <span id="overdoseCountdown">15</span> сек! ⚠️</div>
-
-    <div class="stats-container">
-        <span class="balance-label">Текущий счет</span>
-        <span id="balance" class="money">0 ₽</span>
-        <div class="sub-stats">
-            <div>Клик: <span id="income" style="color: #adc6ff; font-weight: 500;">+1 ₽</span></div>
-            <div>Пассив: <span id="passiveIncome" style="color: #d0bcff; font-weight: 500;">+0 ₽/с</span></div>
+    <div class="header">
+        <div class="balance-title">Ваш баланс</div>
+        <div class="balance-amount" id="balanceDisplay">0 ₽</div>
+        <div class="stats-row">
+            <span id="clickPowerDisplay">Клик: +1 ₽</span>
+            <span id="passivePowerDisplay">Пассив: +0 ₽/с</span>
         </div>
-        <div class="prestige-info">
-            <span>⚛️ Осколки: <span id="shardDisplay" class="shard-color">0</span></span>
-            <span style="color: #919094; margin-left: 8px;">(Буст: <span id="boostDisplay" style="color:#34c759; font-weight:500;">+0%</span>)</span>
-        </div>
+        <div id="shardsDisplay" style="font-size: 11px; color: #9c27b0; margin-top: 5px; font-weight: bold;">Осколки: 0 (+0%)</div>
     </div>
 
-    <div class="multiplier-container" id="multContainer" style="display: none;">
-        <button class="mult-btn active" id="mult_1" onclick="setMultiplier(1)">x1</button>
-        <button class="mult-btn" id="mult_5" onclick="setMultiplier(5)">x5</button>
-        <button class="mult-btn" id="mult_10" onclick="setMultiplier(10)">x10</button>
-        <button class="mult-btn" id="mult_20" onclick="setMultiplier(20)">x20</button>
-    </div>
-
-    <div id="tab_main" class="tab-content active">
-        <h1>Ядро генерации</h1>
-        <p>Нажимай на триггер для ручной выработки энергии</p>
-        <div class="click-area">
-            <button class="click-btn" id="coreBtn" onmousedown="makeClick(event)" ontouchstart="makeClick(event)">
-                <span class="icon-energy">⚡</span>
-            </button>
-        </div>
-    </div>
-
-    <div id="tab_upgrades" class="tab-content">
-        <h1>Модификаторы клика</h1>
-        <div class="tree-container">
-            <div class="upgrade-node" id="node_click_1">
-                <div class="upgrade-title"><span>⚡ Микропроцессор</span><span class="lvl-badge" id="lvl_click_1">Lvl 0</span></div>
-                <div class="upgrade-desc">Повышает силу тапа на +1 ₽ за уровень.</div>
-                <button class="btn" id="btn_click_1" onclick="buyUpgrade('click_1')">Купить</button>
-            </div>
-            <div class="upgrade-node locked" id="node_click_2">
-                <span class="locked-badge" id="lock_click_2">🔒 Нужен Lvl 5 Процессора</span>
-                <div class="upgrade-title"><span>🚀 Квантовый ускоритель</span><span class="lvl-badge" id="lvl_click_2">Lvl 0</span></div>
-                <div class="upgrade-desc">Повышает силу тапа на +5 ₽ за уровень.</div>
-                <button class="btn" id="btn_click_2" onclick="buyUpgrade('click_2')" disabled>Купить</button>
-            </div>
-        </div>
-    </div>
-
-    <div id="tab_office" class="tab-content">
-        <h1>Автоматизация</h1>
-        <div class="tree-container">
-            <div class="upgrade-node" id="node_passive_1">
-                <div class="upgrade-title"><span>🤖 Базовый бот-скрипт</span><span class="lvl-badge" id="lvl_passive_1">Lvl 0</span></div>
-                <div class="upgrade-desc">Генерирует +2 ₽/сек фонового дохода за уровень.</div>
-                <button class="btn passive-btn" id="btn_passive_1" onclick="buyUpgrade('passive_1')">Купить</button>
-            </div>
-            <div class="upgrade-node locked" id="node_passive_2">
-                <span class="locked-badge" id="lock_passive_2">🔒 Нужен Lvl 5 Скрипта</span>
-                <div class="upgrade-title"><span>🧠 Нейросетевой кластер</span><span class="lvl-badge" id="lvl_passive_2">Lvl 0</span></div>
-                <div class="upgrade-desc">Генерирует +15 ₽/сек фонового дохода за уровень.</div>
-                <button class="btn passive-btn" id="btn_passive_2" onclick="buyUpgrade('passive_2')" disabled>Купить</button>
-            </div>
-        </div>
-    </div>
-
-    <div id="tab_prestige" class="tab-content">
-        <h1>Квантовый Перезапуск</h1>
-        <p>Сбрось текущий прогресс, чтобы высвободить чистую энергию Осколков!</p>
-        <div class="tree-container" style="margin-top: 20px;">
-            <div class="upgrade-node" style="text-align: center; width: 95%;">
-                <div style="font-size: 15px; margin-bottom: 12px; color: #cbc4cf;">Доступно при балансе от <b style="color: #34c759;">1 000 000 ₽</b></div>
-                <div style="font-size: 14px; color: #919094; margin-bottom: 16px;">Каждый осколок дает постоянный буст <b style="color: #7da4ff;">+10%</b> ко всей добыче.</div>
-                <div style="background: #1d1b20; padding: 16px; border-radius: 16px; margin-bottom: 16px;">
-                    <span style="font-size: 13px; color: #919094; display:block;">Ты получишь при сбросе:</span>
-                    <span id="prestigeGainDisplay" style="font-size: 26px; color: #7da4ff; font-weight: bold;">0 ⚛️</span>
+    <div class="content-area">
+        
+        <div id="gameTab" class="tab-content">
+            <div class="game-container">
+                <div class="click-circle" onclick="handleTap(event)">
+                    <span style="font-size: 64px;">💎</span>
                 </div>
-                <button class="btn prestige-btn" id="prestigeCallBtn" onclick="triggerPrestige()" disabled>Произвести коллапс вселенной</button>
+                
+                <button class="action-btn shards-btn" onclick="buyShard()">Купить осколок (1 000 000 ₽)</button>
+                <button class="action-btn" onclick="saveGameData(true)">Сохранить прогресс вручную</button>
             </div>
         </div>
-    </div>
 
-    <div id="tab_leaderboard" class="tab-content">
-        <h1>Рейтинг игроков</h1>
-        <p>Реальный топ пользователей твоего бота</p>
-        <div class="leaderboard-list" id="leaderboardContainer">
-            <div style="color: #919094; margin-top: 20px;">Топ-лист пуст</div>
+        <div id="upgradesTab" class="tab-content">
+            <h3 style="margin-bottom: 15px; font-size: 18px;">Доступные апгрейды</h3>
+            <div id="upgradesContainer">
+                </div>
         </div>
-    </div>
 
-    <div class="modal-backdrop" id="offlineModal">
-        <div class="bottom-sheet">
-            <div class="sheet-drag-handle"></div>
-            <div class="modal-title">С возвращением!</div>
-            <div class="modal-time" id="offlineTimeText">Тебя не было: 0 сек</div>
-            <div class="modal-reward" id="offlineRewardText">+0 ₽</div>
-            <button class="btn available" onclick="closeOfflineModal()">Забрать энергию</button>
+        <div id="leaderboardTab" class="tab-content">
+            <h3 style="margin-bottom: 15px; font-size: 18px;">Топ-20 Богачей (Firebase Live)</h3>
+            <div id="leaderboardContainer">
+                <div style="color: #919094; margin-top: 20px;">Загрузка списка лидеров...</div>
+            </div>
         </div>
+
     </div>
 
-    <div class="tab-bar">
-        <button class="tab-btn active" id="btn_tab_main" onclick="switchTab('main')"><div class="icon-wrapper"><span class="icon">⚡</span></div><span>Ядро</span></button>
-        <button class="tab-btn" id="btn_tab_upgrades" onclick="switchTab('upgrades')"><div class="icon-wrapper"><span class="icon">📈</span></div><span>Клики</span></button>
-        <button class="tab-btn" id="btn_tab_office" onclick="switchTab('office')"><div class="icon-wrapper"><span class="icon">🤖</span></div><span>Авто</span></button>
-        <button class="tab-btn" id="btn_tab_prestige" onclick="switchTab('prestige')"><div class="icon-wrapper"><span class="icon">⚛️</span></div><span>Сброс</span></button>
-        <button class="tab-btn" id="btn_tab_leaderboard" onclick="switchTab('leaderboard')"><div class="icon-wrapper"><span class="icon">🏆</span></div><span>Топ</span></button>
+    <div class="nav-bar">
+        <button class="nav-btn active" id="btn-game" onclick="switchTab('game')">
+            <div class="nav-icon">🎮</div>
+            <div>Игра</div>
+        </button>
+        <button class="nav-btn" id="btn-upgrades" onclick="switchTab('upgrades')">
+            <div class="nav-icon">⚡</div>
+            <div>Улучшения</div>
+        </button>
+        <button class="nav-btn" id="btn-leaderboard" onclick="switchTab('leaderboard')">
+            <div class="nav-icon">🏆</div>
+            <div>Лидеры</div>
+        </button>
     </div>
 
-<script>
-// 1. ИНИЦИАЛИЗАЦИЯ FIREBASE (Вставь сюда СВОИ данные из консоли Firebase!)
-const firebaseConfig = {
-    apiKey: "AIzaSyAihhgVxq3rp4uGS7XsxAhcOB-XCU5hJ4s",
-    authDomain: "https://quanta-1750d.firebaseapp.com",
-    databaseURL: "https://quanta-1750d-default-rtdb.firebaseio.com",
-    projectId: "quanta-1750d",
-    storageBucket: "https://quanta-1750d.firebasestorage.app",
-    messagingSenderId: "368460200385",
-    appId: "1:368460200385:web:4f4ba6f63b89788d491740"
-};
+    <script>
+        // ==========================================
+        // 1. ИНИЦИАЛИЗАЦИЯ FIREBASE (ВСТАВЬ СВОИ КЛЮЧИ!)
+        // ==========================================
+        const firebaseConfig = {
+            apiKey: "AIzaSyAihhgVxq3rp4uGS7XsxAhcOB-XCU5hJ4s",
+            authDomain: "https://quanta-1750d.firebaseapp.com",
+            databaseURL: "https://quanta-1750d-default-rtdb.firebaseio.com",
+            projectId: "quanta-1750d",
+            storageBucket: "https://quanta-1750d.firebasestorage.app",
+            messagingSenderId: "368460200385",
+            appId: "1:368460200385:web:4f4ba6f63b89788d491740"
+        };
 
-// Запуск Firebase
-firebase.initializeApp(firebaseConfig);
-const db = firebase.database();
+        // Запуск Firebase базы данных
+        firebase.initializeApp(firebaseConfig);
+        const db = firebase.database();
 
-// Инициализация Telegram WebApp
-const tg = window.Telegram.WebApp;
-tg.expand();
+        // Считываем контейнер WebApp Telegram
+        const tg = window.Telegram.WebApp;
+        tg.expand();
 
-// Настройки игры
-const upgradeConfig = {
-    click_1: { name: "Деревянный кликер", power: 1, cost: 10 },
-    click_2: { name: "Железный курсор", power: 5, cost: 100 },
-    passive_1: { name: "Маленький майнер", power: 1, cost: 50 },
-    passive_2: { name: "Квантовая ферма", power: 10, cost: 500 }
-};
+        // Конфигурация параметров апгрейда
+        const upgradeConfig = {
+            click_1: { name: "Деревянный кликер", power: 1, cost: 10 },
+            click_2: { name: "Железный курсор", power: 5, cost: 100 },
+            passive_1: { name: "Маленький майнер", power: 1, cost: 50 },
+            passive_2: { name: "Квантовая ферма", power: 10, cost: 500 }
+        };
 
-let gameState = {
-    balance: 0,
-    shards: 0,
-    lastSaveTime: Date.now(),
-    upgrades: { click_1: 0, click_2: 0, passive_1: 0, passive_2: 0 }
-};
+        // Модель сохранения данных
+        let gameState = {
+            balance: 0,
+            shards: 0,
+            lastSaveTime: Date.now(),
+            upgrades: { click_1: 0, click_2: 0, passive_1: 0, passive_2: 0 }
+        };
 
-let currentActiveTab = 'game';
+        let currentActiveTab = 'game';
 
-function getUpgradeCost(type, level) {
-    return Math.floor(upgradeConfig[type].cost * Math.pow(1.5, level));
-}
+        // Формула вычисления стоимости уровня
+        function getUpgradeCost(type, level) {
+            return Math.floor(upgradeConfig[type].cost * Math.pow(1.5, level));
+        }
 
-// 2. ЗАГРУЗКА ДАННЫХ ИЗ FIREBASE (РАБОТАЕТ МГНОВЕННО)
-function initGameData() {
-    const userId = tg.initDataUnsafe?.user?.id || 12345;
-    
-    // Сначала быстро берем локальный сейв, чтобы кнопки сразу ожили
-    const localSave = localStorage.getItem(`quantum_save_${userId}`);
-    if (localSave) {
-        try { gameState = JSON.parse(localSave); } catch(e) {}
-    }
-    updateUI();
-
-    // Стучимся в Firebase за облачным сейвом
-    db.ref('users/' + userId).once('value')
-    .then((snapshot) => {
-        if (snapshot.exists()) {
-            const data = snapshot.val();
-            if (data.save) {
-                gameState = data.save;
-            }
+        // ==========================================
+        // 2. СИНХРОНИЗАЦИЯ И ИНИЦИАЛИЗАЦИЯ ДАННЫХ ИГРОКА
+        // ==========================================
+        function initGameData() {
+            const userId = tg.initDataUnsafe?.user?.id || 12345;
             
-            // Расчет оффлайн дохода
-            const now = Date.now();
-            const secondsOffline = Math.floor((now - (gameState.lastSaveTime || now)) / 1000);
-            if (secondsOffline > 15) {
-                let multiplier = 1 + ((gameState.shards || 0) * 0.10);
-                let basePassive = ((gameState.upgrades.passive_1 || 0) * upgradeConfig.passive_1.power) + ((gameState.upgrades.passive_2 || 0) * upgradeConfig.passive_2.power);
-                let offlineEarnings = secondsOffline * (basePassive * multiplier);
-                if (offlineEarnings > 0) {
-                    gameState.balance += offlineEarnings;
-                    alert(`Пассивный доход за время отсутствия: +${Math.floor(offlineEarnings).toLocaleString('ru-RU')} ₽`);
-                }
+            // Шаг А: Быстро грузим локальную память, чтобы игра не висела "белой"
+            const localSave = localStorage.getItem(`quantum_save_${userId}`);
+            if (localSave) {
+                try { gameState = JSON.parse(localSave); } catch(e) { console.error(e); }
             }
             updateUI();
-            if (currentActiveTab === 'upgrades') renderUpgrades();
+
+            // Шаг Б: Скачиваем свежий бэкап из Firebase
+            db.ref('users/' + userId).once('value')
+            .then((snapshot) => {
+                if (snapshot.exists()) {
+                    const data = snapshot.val();
+                    if (data.save) {
+                        gameState = data.save;
+                    }
+                    
+                    // Расчет оффлайн дохода
+                    const now = Date.now();
+                    const secondsOffline = Math.floor((now - (gameState.lastSaveTime || now)) / 1000);
+                    if (secondsOffline > 15) {
+                        let multiplier = 1 + ((gameState.shards || 0) * 0.10);
+                        let basePassive = ((gameState.upgrades.passive_1 || 0) * upgradeConfig.passive_1.power) + ((gameState.upgrades.passive_2 || 0) * upgradeConfig.passive_2.power);
+                        let offlineEarnings = secondsOffline * (basePassive * multiplier);
+                        if (offlineEarnings > 0) {
+                            gameState.balance += offlineEarnings;
+                            alert(`Пассивный доход за время отсутствия: +${Math.floor(offlineEarnings).toLocaleString('ru-RU')} ₽`);
+                        }
+                    }
+                    updateUI();
+                    if (currentActiveTab === 'upgrades') renderUpgrades();
+                }
+            })
+            .catch(err => console.log("Работаем в автономном режиме (Firebase offline):", err));
+
+            // Сразу запускаем постоянный слушатель лидерборда
+            initLiveLeaderboard();
         }
-    })
-    .catch(err => console.log("Ошибка загрузки из Firebase, играем локально:", err));
 
-    // СРАЗУ включаем «живое» слежение за топом лидеров!
-    initLiveLeaderboard();
-}
+        // ==========================================
+        // 3. ЖИВОЙ ЛИДЕРБОРД (БЕЗ ПЕРЕЗАГРУЗОК)
+        // ==========================================
+        function initLiveLeaderboard() {
+            // Запрашиваем 20 записей с максимальным балансом. Firebase сам пришлет обновление, если кто-то кликнет!
+            db.ref('users').orderByChild('balance').limitToLast(20).on('value', (snapshot) => {
+                let players = [];
+                snapshot.forEach((childSnapshot) => {
+                    players.push(childSnapshot.val());
+                });
+                
+                // Переворачиваем массив, так как Firebase присылает снизу вверх
+                players.reverse();
+                
+                const container = document.getElementById('leaderboardContainer');
+                if (!container) return;
+                
+                let html = "";
+                players.forEach((player, index) => {
+                    let rankColor = index === 0 ? "#ffca28" : (index === 1 ? "#b0bec5" : (index === 2 ? "#bcaaa4" : "#fff"));
+                    let pName = player.username || "Игрок";
+                    let pBalance = player.balance || 0;
+                    
+                    html += `
+                        <div class="leader-item" style="display: flex; justify-content: space-between; padding: 12px; margin-bottom: 8px; background: rgba(255,255,255,0.02); border-radius: 10px; border: 1px solid #232227;">
+                            <div style="display: flex; gap: 12px; align-items: center;">
+                                <span style="color: ${rankColor}; font-weight: 800; font-size: 14px;">#${index + 1}</span>
+                                <span style="color: #fff; font-size: 14px;">${pName}</span>
+                            </div>
+                            <span style="color: #4caf50; font-weight: bold; font-size: 14px;">${Math.floor(pBalance).toLocaleString('ru-RU')} ₽</span>
+                        </div>
+                    `;
+                });
+                container.innerHTML = html;
+            });
+        }
 
-// 3. ЖИВОЙ ТОП ЛИДЕРОВ (ОБНОВЛЯЕТСЯ САМ ПРИ ИЗМЕНЕНИИ БАЛАНСА У ЛЮБОГО ИГРОКА)
-function initLiveLeaderboard() {
-    // Берем из базы данных игроков, сортируем по балансу и берем топ-20 самых богатых
-    db.ref('users').orderByChild('balance').limitToLast(20).on('value', (snapshot) => {
-        let players = [];
-        snapshot.forEach((childSnapshot) => {
-            players.push(childSnapshot.val());
-        });
-        
-        // Firebase сортирует от меньшего к большему, поэтому переворачиваем массив
-        players.reverse();
-        
-        // Перерисовываем интерфейс топа, если открыта нужная вкладка
-        const container = document.getElementById('leaderboardContainer');
-        if (!container) return;
-        
-        let html = "";
-        players.forEach((player, index) => {
-            let rankColor = index === 0 ? "#ffca28" : (index === 1 ? "#b0bec5" : (index === 2 ? "#bcaaa4" : "#fff"));
-            let pName = player.username || "Игрок";
-            let pBalance = player.balance || 0;
+        // ==========================================
+        // 4. ФУНКЦИЯ СОХРАНЕНИЯ ПРОГРЕССА
+        // ==========================================
+        function saveGameData(isManual = false) {
+            const userId = tg.initDataUnsafe?.user?.id || 12345;
+            const username = tg.initDataUnsafe?.user?.first_name || "Игрок";
             
-            html += `
-                <div class="leader-item" style="display: flex; justify-content: space-between; padding: 10px; margin-bottom: 8px; background: rgba(255,255,255,0.03); border-radius: 8px; border: 1px solid #2d2c30;">
-                    <div style="display: flex; gap: 12px;">
-                        <span style="color: ${rankColor}; font-weight: bold;">#${index + 1}</span>
-                        <span style="color: #fff;">${pName}</span>
+            gameState.lastSaveTime = Date.now();
+            localStorage.setItem(`quantum_save_${userId}`, JSON.stringify(gameState));
+            
+            // Пишем в Firebase. Поле баланса выносим на верхний уровень для удобной индексации топа
+            db.ref('users/' + userId).set({
+                username: username,
+                balance: Math.floor(gameState.balance),
+                save: gameState
+            })
+            .then(() => {
+                if (isManual) alert("Прогресс успешно зафиксирован в облаке Firebase!");
+            })
+            .catch(e => console.error("Ошибка синхронизации:", e));
+        }
+
+        // ==========================================
+        // 5. ИГРОВЫЕ МЕХАНИКИ (КЛИК, АПГРЕЙДЫ, ПРЕСТИЖ)
+        // ==========================================
+        function handleTap(event) {
+            let clickPower = 1 + ((gameState.upgrades.click_1 || 0) * upgradeConfig.click_1.power) + ((gameState.upgrades.click_2 || 0) * upgradeConfig.click_2.power);
+            let multiplier = 1 + ((gameState.shards || 0) * 0.10);
+            let totalClick = clickPower * multiplier;
+            
+            gameState.balance += totalClick;
+            updateUI();
+
+            // Создание красивых всплывающих циферок под пальцем
+            if (event && event.clientX) {
+                const clickText = document.createElement('div');
+                clickText.innerText = `+${Math.floor(totalClick)} ₽`;
+                clickText.className = 'click-animation';
+                clickText.style.left = `${event.clientX}px`;
+                clickText.style.top = `${event.clientY}px`;
+                document.body.appendChild(clickText);
+                setTimeout(() => { clickText.remove(); }, 800);
+            }
+        }
+
+        function buyUpgrade(type) {
+            let currentLevel = gameState.upgrades[type] || 0;
+            let currentCost = getUpgradeCost(type, currentLevel);
+            
+            if (gameState.balance >= currentCost) {
+                gameState.balance -= currentCost;
+                gameState.upgrades[type] = currentLevel + 1;
+                updateUI();
+                renderUpgrades();
+            } else {
+                alert("Недостаточно денег для апгрейда!");
+            }
+        }
+
+        function buyShard() {
+            if (gameState.balance >= 1000000) {
+                gameState.balance -= 1000000;
+                gameState.shards = (gameState.shards || 0) + 1;
+                alert("Ура! Осколок Квантума ваш! Множитель кликов и пассивки вырос на +10%.");
+                updateUI();
+            } else {
+                alert("Вам необходимо накопить 1 000 000 ₽!");
+            }
+        }
+
+        // Перерисовка текстов
+        function updateUI() {
+            const balanceEl = document.getElementById('balanceDisplay');
+            if (balanceEl) balanceEl.innerText = Math.floor(gameState.balance).toLocaleString('ru-RU') + " ₽";
+            
+            let clickPower = 1 + ((gameState.upgrades.click_1 || 0) * upgradeConfig.click_1.power) + ((gameState.upgrades.click_2 || 0) * upgradeConfig.click_2.power);
+            let basePassive = ((gameState.upgrades.passive_1 || 0) * upgradeConfig.passive_1.power) + ((gameState.upgrades.passive_2 || 0) * upgradeConfig.passive_2.power);
+            let multiplier = 1 + ((gameState.shards || 0) * 0.10);
+
+            const clickPowerEl = document.getElementById('clickPowerDisplay');
+            if (clickPowerEl) clickPowerEl.innerText = `Клик: +${(clickPower * multiplier).toFixed(0)} ₽`;
+
+            const passivePowerEl = document.getElementById('passivePowerDisplay');
+            if (passivePowerEl) passivePowerEl.innerText = `Пассив: +${(basePassive * multiplier).toFixed(1)} ₽/с`;
+
+            const shardsEl = document.getElementById('shardsDisplay');
+            if (shardsEl) shardsEl.innerText = `Осколки: ${gameState.shards || 0} (Буст: +${((gameState.shards || 0) * 10)}%)`;
+        }
+
+        // Рендер кнопок во вкладке магазинов
+        function renderUpgrades() {
+            const container = document.getElementById('upgradesContainer');
+            if (!container) return;
+            
+            let html = "";
+            Object.keys(upgradeConfig).forEach(type => {
+                let level = gameState.upgrades[type] || 0;
+                let cost = getUpgradeCost(type, level);
+                let config = upgradeConfig[type];
+                let typeText = type.startsWith('click') ? "к клику" : "в сек";
+                
+                html += `
+                    <div class="upgrade-item" style="display: flex; justify-content: space-between; align-items: center; padding: 12px; margin-bottom: 10px; background: rgba(255,255,255,0.02); border: 1px solid #232227; border-radius: 12px;">
+                        <div>
+                            <div style="font-weight: bold; color: #fff; font-size: 15px;">${config.name} <span style="color: #7b52ff; font-size: 13px;">[Ур. ${level}]</span></div>
+                            <div style="font-size: 12px; color: #818085; margin-top: 2px;">+${config.power} ${typeText}</div>
+                        </div>
+                        <button style="background: #4caf50; color: #fff; border: none; padding: 10px 16px; border-radius: 8px; font-weight: bold; font-size: 13px;" onclick="buyUpgrade('${type}')">
+                            ${cost.toLocaleString('ru-RU')} ₽
+                        </button>
                     </div>
-                    <span style="color: #4caf50; font-weight: bold;">${Math.floor(pBalance).toLocaleString('ru-RU')} ₽</span>
-                </div>
-            `;
-        });
-        container.innerHTML = html;
-    });
-}
+                `;
+            });
+            container.innerHTML = html;
+        }
 
-// 4. СОХРАНЕНИЕ ДАННЫХ В FIREBASE
-function saveGameData(isManual = false) {
-    const userId = tg.initDataUnsafe?.user?.id || 12345;
-    const username = tg.initDataUnsafe?.user?.first_name || "Игрок";
-    
-    gameState.lastSaveTime = Date.now();
-    localStorage.setItem(`quantum_save_${userId}`, JSON.stringify(gameState));
-    
-    // Пишем в Firebase одну структуру. Колонка balance вынесена отдельно для легкой сортировки топа!
-    db.ref('users/' + userId).set({
-        username: username,
-        balance: Math.floor(gameState.balance),
-        save: gameState
-    })
-    .then(() => {
-        if (isManual) alert("Игра успешно сохранена в облако Firebase!");
-    })
-    .catch(e => console.error("Ошибка автосохранения Firebase:", e));
-}
+        // Переключение между вкладками меню
+        function switchTab(tabId) {
+            currentActiveTab = tabId;
+            document.querySelectorAll('.tab-content').forEach(el => el.style.display = 'none');
+            
+            const targetTab = document.getElementById(`${tabId}Tab`);
+            if (targetTab) targetTab.style.display = 'block';
+            
+            document.querySelectorAll('.nav-btn').forEach(el => el.classList.remove('active'));
+            const activeBtn = document.getElementById(`btn-${tabId}`);
+            if (activeBtn) activeBtn.classList.add('active');
+            
+            if (tabId === 'upgrades') renderUpgrades();
+        }
 
-// 5. МЕХАНИКА КЛИКА
-function handleTap(event) {
-    let clickPower = 1 + ((gameState.upgrades.click_1 || 0) * upgradeConfig.click_1.power) + ((gameState.upgrades.click_2 || 0) * upgradeConfig.click_2.power);
-    let multiplier = 1 + ((gameState.shards || 0) * 0.10);
-    let totalClick = clickPower * multiplier;
-    
-    gameState.balance += totalClick;
-    updateUI();
-
-    if (event && event.clientX) {
-        const clickText = document.createElement('div');
-        clickText.innerText = `+${Math.floor(totalClick)} ₽`;
-        clickText.style.position = 'absolute';
-        clickText.style.left = `${event.clientX}px`;
-        clickText.style.top = `${event.clientY}px`;
-        clickText.style.color = '#4caf50';
-        clickText.style.fontWeight = 'bold';
-        clickText.style.pointerEvents = 'none';
-        clickText.style.transition = 'all 0.8s ease';
-        document.body.appendChild(clickText);
-        setTimeout(() => { clickText.remove(); }, 800);
-    }
-}
-
-// 6. ПОКУПКА УЛУЧШЕНИЙ
-function buyUpgrade(type) {
-    let currentLevel = gameState.upgrades[type] || 0;
-    let currentCost = getUpgradeCost(type, currentLevel);
-    
-    if (gameState.balance >= currentCost) {
-        gameState.balance -= currentCost;
-        gameState.upgrades[type] = currentLevel + 1;
-        updateUI();
-        renderUpgrades();
-    } else {
-        alert("Недостаточно рублей!");
-    }
-}
-
-function buyShard() {
-    if (gameState.balance >= 1000000) {
-        gameState.balance -= 1000000;
-        gameState.shards = (gameState.shards || 0) + 1;
-        alert("Осколок Квантума успешно куплен! Буст +10% активирован.");
-        updateUI();
-    } else {
-        alert("Вам нужен 1 000 000 ₽!");
-    }
-}
-
-// 7. ОБНОВЛЕНИЕ СТАНДАРТНОГО UI
-function updateUI() {
-    const balanceEl = document.getElementById('balanceDisplay');
-    if (balanceEl) balanceEl.innerText = Math.floor(gameState.balance).toLocaleString('ru-RU') + " ₽";
-    
-    let clickPower = 1 + ((gameState.upgrades.click_1 || 0) * upgradeConfig.click_1.power) + ((gameState.upgrades.click_2 || 0) * upgradeConfig.click_2.power);
-    let basePassive = ((gameState.upgrades.passive_1 || 0) * upgradeConfig.passive_1.power) + ((gameState.upgrades.passive_2 || 0) * upgradeConfig.passive_2.power);
-    let multiplier = 1 + ((gameState.shards || 0) * 0.10);
-
-    const clickPowerEl = document.getElementById('clickPowerDisplay');
-    if (clickPowerEl) clickPowerEl.innerText = `Клик: +${(clickPower * multiplier).toFixed(0)} ₽`;
-
-    const passivePowerEl = document.getElementById('passivePowerDisplay');
-    if (passivePowerEl) passivePowerEl.innerText = `Пассив: +${(basePassive * multiplier).toFixed(1)} ₽/с`;
-
-    const shardsEl = document.getElementById('shardsDisplay');
-    if (shardsEl) shardsEl.innerText = `Осколки: ${gameState.shards || 0} (+${((gameState.shards || 0) * 10)}%)`;
-}
-
-// 8. РЕНДЕР ВКЛАДКИ УЛУЧШЕНИЙ
-function renderUpgrades() {
-    const container = document.getElementById('upgradesContainer');
-    if (!container) return;
-    
-    let html = "";
-    Object.keys(upgradeConfig).forEach(type => {
-        let level = gameState.upgrades[type] || 0;
-        let cost = getUpgradeCost(type, level);
-        let config = upgradeConfig[type];
-        let typeText = type.startsWith('click') ? "к клику" : "в сек";
+        // ==========================================
+        // 6. ТАЙМЕРЫ АВТО-РАБОТЫ
+        // ==========================================
         
-        html += `
-            <div class="upgrade-item" style="display: flex; justify-content: space-between; align-items: center; padding: 12px; margin-bottom: 10px; background: rgba(255,255,255,0.02); border: 1px solid #2d2c30; border-radius: 12px;">
-                <div>
-                    <div style="font-weight: bold; color: #fff;">${config.name} <span style="color: #a1a0a5; font-size: 13px;">[Ур. ${level}]</span></div>
-                    <div style="font-size: 13px; color: #818085;">+${config.power} ${typeText}</div>
-                </div>
-                <button class="buy-btn" onclick="buyUpgrade('${type}')" style="background: #4caf50; color: #fff; border: none; padding: 8px 16px; border-radius: 8px; font-weight: bold; cursor: pointer;">
-                    ${cost.toLocaleString('ru-RU')} ₽
-                </button>
-            </div>
-        `;
-    });
-    container.innerHTML = html;
-}
+        // Каждую секунду начисляем пассивный доход
+        setInterval(() => {
+            let basePassive = ((gameState.upgrades.passive_1 || 0) * upgradeConfig.passive_1.power) + ((gameState.upgrades.passive_2 || 0) * upgradeConfig.passive_2.power);
+            let multiplier = 1 + ((gameState.shards || 0) * 0.10);
+            if (basePassive > 0) {
+                gameState.balance += (basePassive * multiplier);
+                updateUI();
+            }
+        }, 1000);
 
-// 9. НАВИГАЦИЯ
-function switchTab(tabId) {
-    currentActiveTab = tabId;
-    document.querySelectorAll('.tab-content').forEach(el => el.style.display = 'none');
-    
-    const targetTab = document.getElementById(`${tabId}Tab`);
-    if (targetTab) targetTab.style.display = 'block';
-    
-    document.querySelectorAll('.nav-btn').forEach(el => el.classList.remove('active'));
-    const activeBtn = document.getElementById(`btn-${tabId}`);
-    if (activeBtn) activeBtn.classList.add('active');
-    
-    if (tabId === 'upgrades') renderUpgrades();
-}
+        // Каждые 20 секунд незаметно сохраняем прогресс в Firebase
+        setInterval(() => { saveGameData(false); }, 20000);
 
-// Ежесекундный пассивный доход
-setInterval(() => {
-    let basePassive = ((gameState.upgrades.passive_1 || 0) * upgradeConfig.passive_1.power) + ((gameState.upgrades.passive_2 || 0) * upgradeConfig.passive_2.power);
-    let multiplier = 1 + ((gameState.shards || 0) * 0.10);
-    if (basePassive > 0) {
-        gameState.balance += (basePassive * multiplier);
-        updateUI();
-    }
-}, 1000);
-
-// Автосохранение в облако Firebase каждые 20 секунд
-setInterval(() => { saveGameData(false); }, 20000);
-
-window.onload = function() {
-    initGameData();
-    switchTab('game');
-};
+        // Автозапуск при входе
+        window.onload = function() {
+            initGameData();
+            switchTab('game');
+        };
     </script>
 </body>
 </html>
