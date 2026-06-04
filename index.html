@@ -238,6 +238,332 @@
             passive_2: { baseCost: 800, factor: 1.20, power: 15 }
         };
 
+        // ЧИТАЕМ ДАННЫЕ ИЗ ССЫЛКИ ОТ БОТА ПРИ ЗАПУСКЕ
+        function initGameData() {
+            try {
+                const urlParams = new URLSearchParams(window.location.search);
+                const dataParam = urlParams.get('data');
+                
+                if (dataParam) {
+                    const decoded = JSON.parse(decodeURIComponent(dataParam));
+                    if (decoded.save) gameState = decoded.save;
+                    if (decoded.top) leaderData = decoded.top;
+                    
+                    // Расчет оффлайн-дохода
+                    const now = Date.now();
+                    const secondsOffline = Math.floor((now - (gameState.lastSaveTime || now)) / 1000);
+                    if (secondsOffline > 15 && gameState.upgrades) {
+                        let multiplier = 1 + ((gameState.shards || 0) * 0.10);
+                        let basePassive = ((gameState.upgrades.passive_1 || 0) * upgradeConfig.passive_1.power) + ((gameState.upgrades.passive_2 || 0) * upgradeConfig.passive_2.power);
+                        let actualPassive = basePassive * multiplier;
+                        let offlineEarnings = secondsOffline * actualPassive;
+                        if (offlineEarnings > 0) {
+                            gameState.balance += offlineEarnings;
+                            setTimeout(() => { showOfflineModal(secondsOffline, offlineEarnings); }, 600);
+                        }
+                    }
+                } else {
+                    // Резервный локальный режим (если открыли просто в браузере)
+                    const userId = tg.initDataUnsafe?.user?.id ? tg.initDataUnsafe.user.id.toString() : "local_user";
+                    const localSave = localStorage.getItem(`quantum_save_${userId}`);
+                    if(localSave) gameState = JSON.parse(localSave);
+                }
+            } catch (e) { console.log("Ошибка инициализации:", e); }
+            updateUI();
+        }
+
+        function switchTab(tabId) {
+            currentActiveTab = tabId;
+            document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active'));
+            document.querySelectorAll('.tab-btn').forEach(el => el.classList.remove('active'));
+            document.getElementById('tab_' + tabId).classList.add('active');
+            document.getElementById('btn_tab_' + tabId).classList.add('active');
+            const multContainer = document.getElementById('multContainer');
+            multContainer.style.display = (tabId === 'upgrades' || tabId === 'office') ? 'flex' : 'none';
+            if (tabId === 'leaderboard') renderLeaderboard();
+            if (tg.HapticFeedback) tg.HapticFeedback.impactOccurred('light');
+            updateUI();
+        }
+
+        function renderLeaderboard() {
+            const container = document.getElementById('leaderboardContainer');
+            container.innerHTML = "";
+            if(!leaderData || leaderData.length === 0) {
+                container.innerHTML = `<div style="color: #919094; margin-top: 20px;">Топ обновляется при перезапуске через /start</div>`;
+                return;
+            }
+            leaderData.sort((a, b) => b.balance - a.balance);
+            leaderData.forEach((player, index) => {
+                const item = document.createElement('div');
+                item.className = 'leader-item';
+                item.innerHTML = `
+                    <div class="leader-rank">#${index + 1}</div>
+                    <div class="leader-name">${player.name}</div>
+                    <div class="leader-score">${Math.floor(player.balance).toLocaleString('ru-RU')} ₽</div>
+                `;
+                container.appendChild(item);
+            });
+        }
+
+        function showOfflineModal(seconds, reward) {
+            document.getElementById('offlineTimeText').innerText = `Тебя не было: ${Math.floor(seconds/60)} мин`;
+            document.getElementById('offlineRewardText').innerText = `+${Math.floor(reward).toLocaleString('ru-RU')} ₽`;
+            document.getElementById('offlineModal').classList.add('open');
+        }
+
+        function closeOfflineModal() { document.getElementById('offlineModal').classList.remove('open'); }
+
+        const updateFPS = 20;
+        setInterval(function() {
+            if (gameState.passiveIncome > 0) { gameState.balance += (gameState.passiveIncome / updateFPS); }
+            document.getElementById('balance').innerText = Math.floor(gameState.balance).toLocaleString('ru-RU') + " ₽";
+            calculatePrestigeGain(); updateSmartButtons();
+        }, 1000 / updateFPS);
+
+        setInterval(function() {
+            if (isOverdoseActive) {
+                overdoseTimeLeft--;
+                document.getElementById('overdoseCountdown').innerText = overdoseTimeLeft;
+                if (overdoseTimeLeft <= 0) {
+                    isOverdoseActive = false;
+                    document.body.classList.remove('overdose-active');
+                    document.getElementById('overdoseBanner').style.display = 'none';
+                    updateUI();
+                }
+            }
+        }, 1000);
+
+        function setupAnomalySpawner() {
+            setTimeout(() => { spawnOverdoseAnomaly(); setupAnomalySpawner(); }, (45 + Math.random() * 45) * 1000);
+        }
+        setupAnomalySpawner();
+
+        function spawnOverdoseAnomaly() {
+            if (currentActiveTab !== 'main' || isOverdoseActive) return;
+            const sphere = document.createElement('div');
+            sphere.className = 'anomaly-sphere'; sphere.innerText = 'OVERDOSE!';
+            const x = 30 + Math.random() * (window.innerWidth - 140);
+            const y = 140 + Math.random() * (window.innerHeight - 340);
+            sphere.style.left = `${x}px`; sphere.style.top = `${y}px`;
+            const activate = (e) => { e.preventDefault(); sphere.remove(); activateEarnOverdose(); };
+            sphere.addEventListener('touchstart', activate);
+            document.body.appendChild(sphere);
+            setTimeout(() => { sphere.remove(); }, 6000);
+        }
+
+        function activateEarnOverdose() {
+            isOverdoseActive = true; overdoseTimeLeft = 15;
+            playSound('overdose_start');
+            document.body.classList.add('overdose-active');
+            document.getElementById('overdoseBanner').style.display = 'block';
+            updateUI();
+        }
+
+        function makeClick(event) {
+            if (event.type === 'touchstart') event.preventDefault();
+            gameState.balance += gameState.clickIncome;
+            playSound('click');
+            if (tg.HapticFeedback) tg.HapticFeedback.impactOccurred('light');
+            const btn = document.getElementById('coreBtn');
+            btn.classList.remove('rippling'); void btn.offsetWidth; btn.classList.add('rippling');
+            createFloatingNumber(event);
+            updateUI();
+        }
+
+        function createFloatingNumber(event) {
+            let clientX = event.touches ? event.touches[0].clientX : event.clientX;
+            let clientY = event.touches ? event.touches[0].clientY : event.clientY;
+            const num = document.createElement('div');
+            num.className = 'floating-number'; num.innerText = `+${Math.floor(gameState.clickIncome)}`;
+            num.style.left = `${clientX - 15}px`; num.style.top = `${clientY - 20}px`;
+            document.body.appendChild(num);
+            setTimeout(() => { num.remove(); }, 600);
+        }
+
+        function setMultiplier(amount) {
+            buyMultiplier = amount;
+            document.querySelectorAll('.mult-btn').forEach(btn => btn.classList.remove('active'));
+            document.getElementById('mult_' + amount).classList.add('active');
+            updateUI();
+        }
+
+        // Подсчет стоимости уровней
+        function getCostForLevels(type, currentLvl, count) {
+            let totalCost = 0; let tempLvl = currentLvl;
+            const config = upgradeConfig[type];
+            for (let i = 0; i < count; i++) {
+                totalCost += Math.floor(config.baseCost * Math.pow(config.factor, tempLvl));
+                tempLvl++;
+            }
+            return totalCost;
+        }
+
+        function updateUI() {
+            let prestigeMultiplier = 1 + (gameState.shards * 0.10);
+            let currentOverdoseBonus = isOverdoseActive ? 10 : 1;
+            let totalMultiplier = prestigeMultiplier * currentOverdoseBonus;
+
+            const baseClick = 1 + (gameState.upgrades.click_1 * upgradeConfig.click_1.power) + (gameState.upgrades.click_2 * upgradeConfig.click_2.power);
+            gameState.clickIncome = baseClick * totalMultiplier;
+
+            const basePassive = (gameState.upgrades.passive_1 * upgradeConfig.passive_1.power) + (gameState.upgrades.passive_2 * upgradeConfig.passive_2.power);
+            gameState.passiveIncome = basePassive * totalMultiplier;
+
+            document.getElementById('income').innerText = "+" + Math.floor(gameState.clickIncome) + " ₽";
+            document.getElementById('passiveIncome').innerText = "+" + Math.floor(gameState.passiveIncome) + " ₽/с";
+            document.getElementById('shardDisplay').innerText = gameState.shards;
+            document.getElementById('boostDisplay').innerText = "+" + (gameState.shards * 10) + "%" + (isOverdoseActive ? " | x10 🔥" : "");
+
+            for (let key in gameState.upgrades) {
+                const lvlEl = document.getElementById('lvl_' + key);
+                if (lvlEl) lvlEl.innerText = "Lvl " + gameState.upgrades[key];
+            }
+
+            if (gameState.upgrades.click_1 >= 5) unlockNode('click_2'); else lockNode('click_2');
+            if (gameState.upgrades.passive_1 >= 5) unlockNode('passive_2'); else lockNode('passive_2');
+            updateSmartButtons();
+
+            // Показываем главную кнопку Telegram Web App
+            tg.MainButton.setText("Сохранить и Выйти");
+            tg.MainButton.show();
+        }
+
+        function calculatePrestigeGain() {
+            const prestigeBtn = document.getElementById('prestigeCallBtn');
+            const gainDisplay = document.getElementById('prestigeGainDisplay');
+            if (gameState.balance >= 1000000) {
+                let shardsToGain = Math.floor(Math.sqrt(gameState.balance / 1000000));
+                gainDisplay.innerText = shardsToGain.toLocaleString('ru-RU') + " ⚛️";
+                if(prestigeBtn) prestigeBtn.disabled = false;
+            } else {
+                gainDisplay.innerText = "0 ⚛️";
+                if(prestigeBtn) prestigeBtn.disabled = true;
+            }
+        }
+
+        function triggerPrestige() {
+            if (gameState.balance < 1000000) return;
+            let shardsToGain = Math.floor(Math.sqrt(gameState.balance / 1000000));
+            tg.showConfirm(`Вы уверены? Вы получите ${shardsToGain} осколков, но сбросите рубли.`, function(confirmed) {
+                if (confirmed) {
+                    gameState.shards += shardsToGain;
+                    gameState.balance = 0;
+                    gameState.upgrades = { click_1: 0, click_2: 0, passive_1: 0, passive_2: 0 };
+                    switchTab('main');
+                }
+            });
+        }
+
+        function updateSmartButtons() {
+            for (let key in gameState.upgrades) {
+                const cost = getCostForLevels(key, gameState.upgrades[key], buyMultiplier);
+                const btn = document.getElementById('btn_' + key);
+                const node = document.getElementById('node_' + key);
+                if (!btn || node.classList.contains('locked')) continue;
+                if (gameState.balance >= cost) {
+                    btn.className = "btn available"; btn.innerText = `Купить x${buyMultiplier} • ${cost.toLocaleString('ru-RU')} ₽`;
+                } else {
+                    btn.className = "btn not-available"; btn.innerText = `Еще ${Math.ceil(cost - gameState.balance).toLocaleString('ru-RU')} ₽`;
+                }
+            }
+        }
+
+        function unlockNode(id) {
+            const node = document.getElementById('node_' + id);
+            if (node && node.classList.contains('locked')) {
+                node.classList.remove('locked'); document.getElementById('lock_' + id).style.display = 'none'; document.getElementById('btn_' + id).disabled = false;
+            }
+        }
+
+        function lockNode(id) {
+            const node = document.getElementById('node_' + id);
+            if (node && !node.classList.contains('locked')) {
+                node.classList.add('locked'); document.getElementById('lock_' + id).style.display = 'block'; document.getElementById('btn_' + id).disabled = true;
+            }
+        }
+
+        function buyUpgrade(type) {
+            const currentLvl = gameState.upgrades[type];
+            const cost = getCostForLevels(type, currentLvl, buyMultiplier);
+            if (gameState.balance >= cost) {
+                gameState.balance -= cost; gameState.upgrades[type] += buyMultiplier;
+                playSound('upgrade'); updateUI();
+                
+                // Дублируем локальный бэкап на всякий случай
+                const userId = tg.initDataUnsafe?.user?.id ? tg.initDataUnsafe.user.id.toString() : "local_user";
+                localStorage.setItem(`quantum_save_${userId}`, JSON.stringify(gameState));
+            }
+        }
+
+        // ВЫСТРЕЛ КНОПКИ: отправляем данные боту и закрываем окно
+        tg.onEvent('mainButtonClicked', function(){
+            gameState.lastSaveTime = Date.now();
+            
+            // Важно: создаем финальный объект, содержащий имя игрока (для лидерборда)
+            const packageData = {
+                user_id: tg.initDataUnsafe?.user?.id || 0,
+                username: tg.initDataUnsafe?.user?.first_name || "Игрок",
+                save: gameState
+            };
+            
+            tg.sendData(JSON.stringify(packageData));
+            tg.close();
+        });
+
+        // Запуск
+        initGameData();
+    </script><script>
+        const tg = window.Telegram.WebApp;
+        tg.expand();
+
+        let buyMultiplier = 1;
+        let isOverdoseActive = false;
+        let overdoseTimeLeft = 0;
+        let currentActiveTab = 'main';
+        let leaderData = [];
+
+        const AudioCtx = window.AudioContext || window.webkitAudioContext;
+        let audioCtx = null;
+
+        function playSound(type) {
+            try {
+                if (!audioCtx) audioCtx = new AudioCtx();
+                if (audioCtx.state === 'suspended') audioCtx.resume();
+                const osc = audioCtx.createOscillator();
+                const gain = audioCtx.createGain();
+                osc.connect(gain); gain.connect(audioCtx.destination);
+                const now = audioCtx.currentTime;
+                if (type === 'click') {
+                    osc.type = 'sine'; osc.frequency.setValueAtTime(isOverdoseActive ? 800 : 400, now);
+                    osc.frequency.exponentialRampToValueAtTime(80, now + 0.08);
+                    gain.gain.setValueAtTime(0.15, now); gain.gain.linearRampToValueAtTime(0, now + 0.08);
+                    osc.start(now); osc.stop(now + 0.08);
+                } else if (type === 'upgrade') {
+                    osc.type = 'triangle'; osc.frequency.setValueAtTime(300, now);
+                    osc.frequency.setValueAtTime(500, now + 0.08);
+                    gain.gain.setValueAtTime(0.2, now); gain.gain.linearRampToValueAtTime(0, now + 0.2);
+                    osc.start(now); osc.stop(now + 0.2);
+                } else if (type === 'overdose_start') {
+                    osc.type = 'sawtooth'; osc.frequency.setValueAtTime(100, now);
+                    osc.frequency.exponentialRampToValueAtTime(900, now + 0.5);
+                    gain.gain.setValueAtTime(0.25, now); gain.gain.linearRampToValueAtTime(0, now + 0.5);
+                    osc.start(now); osc.stop(now + 0.5);
+                }
+            } catch (e) {}
+        }
+
+        let gameState = {
+            balance: 0, clickIncome: 1, passiveIncome: 0, lastSaveTime: Date.now(), shards: 0,
+            upgrades: { click_1: 0, click_2: 0, passive_1: 0, passive_2: 0 }
+        };
+
+        const upgradeConfig = {
+            click_1: { baseCost: 50, factor: 1.15, power: 1 },
+            click_2: { baseCost: 300, factor: 1.18, power: 5 },
+            passive_1: { baseCost: 100, factor: 1.16, power: 2 },
+            passive_2: { baseCost: 800, factor: 1.20, power: 15 }
+        };
+
         // Серверный URL генерируется автоматически из текущего адреса хостинга
         const SERVER_URL = window.location.origin;
 
