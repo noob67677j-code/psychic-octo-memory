@@ -343,12 +343,16 @@
             document.querySelectorAll('.tab-btn').forEach(el => el.classList.remove('active'));
             document.getElementById('tab_' + tabId).classList.add('active');
             document.getElementById('btn_tab_' + tabId).classList.add('active');
+            
             const multContainer = document.getElementById('multContainer');
             multContainer.style.display = (tabId === 'upgrades' || tabId === 'office') ? 'flex' : 'none';
+            
+            // ВОТ ЭТОТ БЛОК:
             if (tabId === 'leaderboard') {
-                loadLiveTopData(); 
-                renderLeaderboard();
+                renderLeaderboard(); // Сначала рисуем то, что есть (или надпись загрузки)
+                loadLiveTopData();   // Шлем запрос в Google, который обновит массив и перерисует топ
             }
+            
             if (tg.HapticFeedback) tg.HapticFeedback.impactOccurred('light');
             updateUI();
         }
