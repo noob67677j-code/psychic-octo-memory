@@ -243,75 +243,53 @@
             passive_2: { baseCost: 800, factor: 1.20, power: 15 }
         };
 
-        // 1. ОТПРАВКА СЕЙВА (ФОНОВАЯ И ФИНАЛЬНАЯ) THROUGH POST
-    function saveGameData(isManual = false) {
-            const userId = tg.initDataUnsafe?.user?.id || 12345;
-            const username = tg.initDataUnsafe?.user?.first_name || "Игрок";
-            
-            gameState.lastSaveTime = Date.now();
-            localStorage.setItem(`quantum_save_${userId}`, JSON.stringify(gameState));
-            
-            const params = new URLSearchParams();
-            params.append("action", "save");
-            params.append("user_id", userId);
-            params.append("username", username);
-            params.append("save_data", JSON.stringify(gameState));
-
-            fetch(DATABASE_URL.trim(), {
-                method: "POST",
-                headers: { "Content-Type": "application/x-www-form-urlencoded" },
-                body: params
-            })
-            .then(res => res.json())
-            .then(data => { if(data.status === "success" && isManual) alert("Игра сохранена!"); })
-            .catch(e => console.log("Ошибка автосохранения:", e));
-        }
-// ЗАГРУЗКА ТОПОВ (ЧЕРЕЗ ВЕБ-ФОРМУ)
+        // 1. ЗАГРУЗКА ТОПОВ
         function loadLiveTopData() {
             const userId = tg.initDataUnsafe?.user?.id || 12345;
             
-            const params = new URLSearchParams();
-            params.append("action", "load");
-            params.append("user_id", userId);
-
             fetch(DATABASE_URL.trim(), {
                 method: "POST",
-                headers: { "Content-Type": "application/x-www-form-urlencoded" },
-                body: params
+                headers: { "Content-Type": "text/plain" },
+                body: JSON.stringify({ action: "load", user_id: userId })
             })
             .then(res => {
-                if (!res.ok) throw new Error('Ошибка сети');
-                return res.json();
+                if (!res.ok) throw new Error('Network error');
+                return res.text(); // Принимаем как сырой текст, обходя CORS
             })
-            .then(data => {
+            .then(text => {
+                const data = JSON.parse(text);
                 if (data.status === "success" && data.top) {
                     leaderData = data.top;
+                    localStorage.setItem('quantum_last_top', JSON.stringify(data.top));
                     if (currentActiveTab === 'leaderboard') renderLeaderboard();
                 }
             })
             .catch(e => {
-                console.error("Ошибка топа:", e);
-                document.getElementById('leaderboardContainer').innerHTML = `<div style="color: #919094; margin-top: 20px;">Ошибка загрузки топа</div>`;
+                console.error("Ошибка загрузки топа:", e);
+                // При ошибке рендерим локальный кэш
+                const cachedTop = localStorage.getItem('quantum_last_top');
+                if (cachedTop) leaderData = JSON.parse(cachedTop);
+                if (currentActiveTab === 'leaderboard') renderLeaderboard();
             });
         }
 
-        // ИНИЦИАЛИЗАЦИЯ ИГРЫ ПРИ СТАРТЕ
+        // 2. ИНИЦИАЛИЗАЦИЯ ИГРЫ
         function initGameData() {
             const userId = tg.initDataUnsafe?.user?.id || 12345;
             
             document.getElementById('leaderboardContainer').innerHTML = `<div style="color: #919094; margin-top: 20px;">Загрузка данных...</div>`;
 
-            const params = new URLSearchParams();
-            params.append("action", "load");
-            params.append("user_id", userId);
-
             fetch(DATABASE_URL.trim(), {
                 method: "POST",
-                headers: { "Content-Type": "application/x-www-form-urlencoded" },
-                body: params
+                headers: { "Content-Type": "text/plain" },
+                body: JSON.stringify({ action: "load", user_id: userId })
             })
-            .then(res => res.json())
-            .then(data => {
+            .then(res => {
+                if (!res.ok) throw new Error('Init network error');
+                return res.text();
+            })
+            .then(text => {
+                const data = JSON.parse(text);
                 if (data.status === "success") {
                     if (data.save) {
                         gameState = (typeof data.save === 'string') ? JSON.parse(data.save) : data.save;
@@ -319,20 +297,51 @@
                         const localSave = localStorage.getItem(`quantum_save_${userId}`);
                         if(localSave) gameState = JSON.parse(localSave);
                     }
-                    if (data.top) leaderData = data.top;
+                    if (data.top) {
+                        leaderData = data.top;
+                        localStorage.setItem('quantum_last_top', JSON.stringify(data.top));
+                    }
                 }
                 updateUI();
                 if (currentActiveTab === 'leaderboard') renderLeaderboard();
             })
             .catch(err => {
-                console.log("Оффлайн старт:", err);
+                console.log("Оффлайн старт, берем бэкапы:", err);
                 const localSave = localStorage.getItem(`quantum_save_${userId}`);
                 if(localSave) gameState = JSON.parse(localSave);
+                
+                const cachedTop = localStorage.getItem('quantum_last_top');
+                if (cachedTop) leaderData = JSON.parse(cachedTop);
+                
                 updateUI();
                 if (currentActiveTab === 'leaderboard') renderLeaderboard();
             });
         }
 
+        // 3. СОХРАНЕНИЕ ДАННЫХ
+        function saveGameData(isManual = false) {
+            const userId = tg.initDataUnsafe?.user?.id || 12345;
+            const username = tg.initDataUnsafe?.user?.first_name || "Игрок";
+            
+            gameState.lastSaveTime = Date.now();
+            localStorage.setItem(`quantum_save_${userId}`, JSON.stringify(gameState));
+            
+            fetch(DATABASE_URL.trim(), {
+                method: "POST",
+                headers: { "Content-Type": "text/plain" },
+                body: JSON.stringify({
+                    action: "save",
+                    user_id: userId,
+                    username: username,
+                    save: gameState
+                })
+            })
+            .then(res => res.text())
+            .then(text => {
+                const data = JSON.parse(text);
+                if(data.status === "success" && isManual) alert("Игра успешно сохранена в облако!");
+            })
+            .catch(e => console.log("Ошибка фонового сохранения:", e));
         function switchTab(tabId) {
             currentActiveTab = tabId;
             document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active'));
