@@ -276,22 +276,43 @@
         }, 20000);
 
         // 2. ЖИВАЯ ЗАГРУЗКА ТОПОВ ПРИ ПЕРЕХОДЕ НА ВКЛАДКУ THROUGH POST
+// МАКСИМАЛЬНО ЗАЩИЩЕННАЯ ЗАГРУЗКА ТОПОВ
         function loadLiveTopData() {
             const userId = tg.initDataUnsafe?.user?.id || 12345;
             
-            fetch(DATABASE_URL, {
-                method: "POST",
-                headers: { "Content-Type": "text/plain" },
-                body: JSON.stringify({ action: "load", user_id: userId })
+            // Чистим ссылку от возможных пробелов по краям
+            const cleanUrl = DATABASE_URL.trim();
+            
+            fetch(`${cleanUrl}?user_id=${userId}`, {
+                method: "GET",
+                // Добавляем кэшбэстер, чтобы Telegram не подсовывал старый ответ
+                cache: "no-store" 
             })
-            .then(res => res.json())
+            .then(res => {
+                if (!res.ok) throw new Error('Ошибка сети: ' + res.status);
+                return res.json();
+            })
             .then(data => {
+                console.log("Данные топа успешно получены:", data);
                 if (data.status === "success" && data.top) {
                     leaderData = data.top;
-                    if(currentActiveTab === 'leaderboard') renderLeaderboard();
+                    renderLeaderboard(); // Перерисовываем топ сразу по получению данных
+                } else {
+                    document.getElementById('leaderboardContainer').innerHTML = `<div style="color: #919094; margin-top: 20px;">Ошибка данных топа</div>`;
                 }
             })
-            .catch(e => console.log("Ошибка загрузки топа:", e));
+            .catch(e => {
+                console.log("Ошибка загрузки топа через GET:", e);
+                // Если облако лежит, выводим хотя бы одного игрока (себя), чтобы не висела загрузка
+                document.getElementById('leaderboardContainer').innerHTML = `
+                    <div style="color: #919094; margin-bottom: 10px;">Режим бэкапа (Сеть недоступна)</div>
+                    <div class="leader-item" style="border: 1px solid #3a393d;">
+                        <div class="leader-rank">#1</div>
+                        <div class="leader-name">${tg.initDataUnsafe?.user?.first_name || "Ты"} (Локально)</div>
+                        <div class="leader-score">${Math.floor(gameState.balance).toLocaleString('ru-RU')} ₽</div>
+                    </div>
+                `;
+            });
         }
 
         // 3. ИНИЦИАЛИЗАЦИЯ ИГРЫ ПРИ СТАРТЕ THROUGH POST
