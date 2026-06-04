@@ -186,7 +186,7 @@
         <button class="tab-btn" id="btn_tab_leaderboard" onclick="switchTab('leaderboard')"><div class="icon-wrapper"><span class="icon">🏆</span></div><span>Топ</span></button>
     </div>
 
-    <script>
+<script>
         const tg = window.Telegram.WebApp;
         tg.expand();
 
@@ -238,7 +238,10 @@
             passive_2: { baseCost: 800, factor: 1.20, power: 15 }
         };
 
-        // ЧИТАЕМ ДАННЫЕ ИЗ ССЫЛКИ ОТ БОТА ПРИ ЗАПУСКЕ
+        // Серверный URL генерируется автоматически из текущего адреса хостинга
+        const SERVER_URL = window.location.origin;
+
+        // Инициализация данных
         function initGameData() {
             try {
                 const urlParams = new URLSearchParams(window.location.search);
@@ -262,11 +265,6 @@
                             setTimeout(() => { showOfflineModal(secondsOffline, offlineEarnings); }, 600);
                         }
                     }
-                } else {
-                    // Резервный локальный режим, если открыли не через бота
-                    const userId = tg.initDataUnsafe?.user?.id ? tg.initDataUnsafe.user.id.toString() : "local_user";
-                    const localSave = localStorage.getItem(`quantum_save_${userId}`);
-                    if(localSave) gameState = JSON.parse(localSave);
                 }
             } catch (e) { console.log("Ошибка инициализации:", e); }
             updateUI();
@@ -288,8 +286,8 @@
         function renderLeaderboard() {
             const container = document.getElementById('leaderboardContainer');
             container.innerHTML = "";
-            if(leaderData.length === 0) {
-                container.innerHTML = `<div style="color: #919094; margin-top: 20px;">Топ обновляется при перезапуске через /start</div>`;
+            if(!leaderData || leaderData.length === 0) {
+                container.innerHTML = `<div style="color: #919094; margin-top: 20px;">Топ обновляется при перезапуске через бота</div>`;
                 return;
             }
             leaderData.sort((a, b) => b.balance - a.balance);
@@ -422,7 +420,7 @@
             if (gameState.upgrades.passive_1 >= 5) unlockNode('passive_2'); else lockNode('passive_2');
             updateSmartButtons();
 
-            tg.MainButton.setText("Выйти и сохранить");
+            tg.MainButton.setText("Сохранить и Выйти");
             tg.MainButton.show();
         }
 
@@ -448,6 +446,7 @@
                     gameState.balance = 0;
                     gameState.upgrades = { click_1: 0, click_2: 0, passive_1: 0, passive_2: 0 };
                     switchTab('main');
+                    saveProgressOnServer();
                 }
             });
         }
@@ -486,17 +485,35 @@
             if (gameState.balance >= cost) {
                 gameState.balance -= cost; gameState.upgrades[type] += buyMultiplier;
                 playSound('upgrade'); updateUI();
-                // Локальный бэкап
-                const userId = tg.initDataUnsafe?.user?.id ? tg.initDataUnsafe.user.id.toString() : "local_user";
-                localStorage.setItem(`quantum_save_${userId}`, JSON.stringify(gameState));
+                saveProgressOnServer();
             }
         }
 
-        // КНОПКА СОХРАНЕНИЯ В ОБЛАКО БОТА
-        tg.onEvent('mainButtonClicked', function(){
+        // Функция отправки сохранения на сервер
+        function saveProgressOnServer() {
+            const userId = tg.initDataUnsafe?.user?.id;
+            if (!userId) return;
+
             gameState.lastSaveTime = Date.now();
-            tg.sendData(JSON.stringify(gameState));
-            tg.close();
+            
+            fetch(`${SERVER_URL}/api/save`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    user_id: userId,
+                    username: tg.initDataUnsafe?.user?.first_name || "Игрок",
+                    save_data: gameState
+                })
+            }).catch(e => console.error("Ошибка автосейва:", e));
+        }
+
+        // Автосейв каждые 10 секунд
+        setInterval(saveProgressOnServer, 10000);
+
+        // Кнопка сохранения внизу экрана
+        tg.onEvent('mainButtonClicked', function(){
+            saveProgressOnServer();
+            setTimeout(() => { tg.close(); }, 300);
         });
 
         // Запуск
